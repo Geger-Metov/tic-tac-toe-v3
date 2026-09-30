@@ -1,0 +1,57 @@
+services:
+  # Сервис с базой данных
+  db:
+    image: postgres:18-alpine  # Используем готовый официальный образ
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432" # Пробрасываем порт на хост-машину (для отладки)
+    volumes:
+      - pgdata:/var/lib/postgresql # Сохраняем данные в томе
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # Сервис с FastAPI-приложением
+  app:
+    build: 
+      context: .  # Собираем образ из Dockerfile в текущей директории
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT}:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./src/tic_tac_toe
+          target: /app/tic_tac_toe
+
+        - action: sync+restart
+          path: ./migrations
+          target: /app/migrations
+
+        - action: rebuild
+          path: ./pyproject.toml
+
+        - action: rebuild
+          path: ./uv.lock
+
+        - action: rebuild
+          path: ./alembic.ini
+
+        - action: rebuild
+          path: ./docker-entrypoint.sh
+
+
+# Определяем именованный том для хранения данных PostgreSQL
+volumes:
+  pgdata:

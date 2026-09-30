@@ -1,0 +1,40 @@
+[project]
+name = "tic-tac-toe-v3"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Geger-Metov", email = "205748080+Geger-Metov@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.31.0",
+    "bcrypt>=5.0.0",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "python-dotenv>=1.2.3",
+    "sqlalchemy[asyncio]>=2.1.1",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+tic-tac-toe-v3 = "tic_tac_toe_v3:main"
+
+[build-system]
+requires = ["uv_build>=0.12.20,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+# Это приложение, а не библиотека — не нужно собирать и устанавливать сам
+# проект как пакет (в отличие от uv-дефолта для проектов с pyproject.toml).
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# Позволяет тестам делать "import tic_tac_toe" без --app-dir/PYTHONPATH —
+# pytest сам добавляет src/ в sys.path перед сбором тестов.
+pythonpath = ["src"]
+testpaths = ["tests"]
