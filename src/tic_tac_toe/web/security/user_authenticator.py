@@ -2,9 +2,11 @@ from uuid import UUID
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tic_tac_toe.domain.exception.auth_exceptions import InvalidCredentialsError
+from tic_tac_toe.domain.exception.auth_exceptions import InvalidTokenError
 from tic_tac_toe.domain.service.auth_interface import IAuthService
 from tic_tac_toe.infrastructure.database.session import get_db_session
+
+_BEARER_PREFIX = "Bearer "
 
 
 def get_auth_service(
@@ -20,30 +22,24 @@ async def get_current_user_id(
     auth_service: IAuthService = Depends(get_auth_service),
 ) -> UUID:
     """
-    UserAuthenticator из ТЗ.
-
-    - Валидирует login/password из заголовка Authorization (Basic base64(login:password)).
-    - При успехе — не блокирует запрос и отдаёт UUID пользователя как результат Depends,
-      его может забрать эндпоинт (например, чтобы узнать, кто делает ход).
-    - При неудаче — поднимает 401, и FastAPI не вызовет тело эндпоинта вообще:
-      зависимость подняла исключение раньше, чем начал выполняться route handler.
-
-    Заодно это и есть реализация эндпоинта логина: "аутентифицируй по Basic Auth
-    и верни UUID" — ровно то же самое поведение, которое нужно для защиты
-    остальных эндпоинтов, поэтому /auth/login просто переиспользует эту зависимость
-    напрямую (см. auth_route.py), а не дублирует логику.
+    UserAuthenticator: Basic-авторизация убрана, вместо неё — Bearer.
+    Достаёт accessToken из "Authorization: Bearer {accessToken}", проверяет
+    через JwtProvider (внутри AuthService) и отдаёт UUID пользователя.
+    Любая проблема — 401, тело эндпоинта не выполняется.
     """
-    if authorization is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+    if authorization is None or not authorization.startswith(_BEARER_PREFIX):
+        raise _unauthorized("Missing or malformed Authorization header")
+
+    token = authorization[len(_BEARER_PREFIX):].strip()
     try:
-        return await auth_service.authenticate(authorization)
-    except InvalidCredentialsError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid login or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+        return await auth_service.get_user_id_from_access_token(token)
+    except InvalidTokenError:
+        raise _unauthorized("Invalid or expired token")
+
+
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )

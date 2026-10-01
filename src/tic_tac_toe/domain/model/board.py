@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from typing import List
 
 @dataclass
 class Board:
-   grid: List[List[int]]
+   grid: list[list[int]]
    # self.grid : List[List[int]] = grid
 
    # альтернативный конструктор

@@ -6,9 +6,11 @@ domain-слой не должен знать про HTTP. AuthService/UserServic
 CLI-скрипте или grpc), им не придётся тащить с собой fastapi.HTTPException.
 """
 
+
 class InvalidCredentialsError(Exception):
     """Логин/пароль неверны или отсутствуют — веб-слой превращает это в 401."""
     pass
+
 
 
 class UserAlreadyExistsError(Exception):
@@ -17,3 +19,12 @@ class UserAlreadyExistsError(Exception):
     def __init__(self, login: str):
         super().__init__(f"User with login '{login}' already exists")
         self.login = login
+
+
+class InvalidTokenError(Exception):
+    """accessToken/refreshToken битый, просрочен, не того типа, или (для
+    refreshToken) уже был использован ранее — веб-слой превращает это в 401.
+    Намеренно один класс на все эти случаи, а не отдельно "истёк"/"подделан"/
+    "уже использован": как и с логином/паролем, разная реакция на разные
+    причины невалидности токена превратила бы 401 в оракул для атакующего."""
+    pass

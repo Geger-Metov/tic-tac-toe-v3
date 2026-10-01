@@ -49,6 +49,7 @@ from tic_tac_toe.infrastructure.database.config import get_database_url
 # и только тогда autogenerate вообще их увидит.
 from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel
 from tic_tac_toe.infrastructure.persistence.model.user_model import UserModel
+from tic_tac_toe.infrastructure.persistence.model.refresh_token_model import RefreshTokenModel
 
 target_metadata = Base.metadata
 

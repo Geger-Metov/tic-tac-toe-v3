@@ -1,46 +1,91 @@
-from base64 import b64decode
+from datetime import datetime, timedelta, timezone
+from typing import Tuple
 from uuid import UUID
-import binascii
 
-from tic_tac_toe.domain.exception.auth_exceptions import InvalidCredentialsError
+from tic_tac_toe.datasource.repository.refresh_token_repository import RefreshTokenRepo
+from tic_tac_toe.domain.exception.auth_exceptions import InvalidCredentialsError, InvalidTokenError
+from tic_tac_toe.domain.model.refresh_token import RefreshTokenRecord
 from tic_tac_toe.domain.model.user import User
 from tic_tac_toe.domain.service.auth_interface import IAuthService
+from tic_tac_toe.domain.service.jwt_interface import IJwtProvider
 from tic_tac_toe.domain.service.user_interface import IUserService
 
 
 class AuthService(IAuthService):
-    def __init__(self, user_service: IUserService) -> None:
+    def __init__(
+        self,
+        user_service: IUserService,
+        jwt_provider: IJwtProvider,
+        refresh_token_repo: RefreshTokenRepo,
+        refresh_expires: timedelta,
+    ) -> None:
         self._user_service = user_service
+        self._jwt_provider = jwt_provider
+        self._refresh_token_repo = refresh_token_repo
+        self._refresh_expires = refresh_expires
 
     async def register(self, login: str, password: str) -> User:
-        # AuthService не хранит пользователей сам — это ответственность UserService,
-        # AuthService лишь предоставляет фасад для веб-слоя (как и просит ТЗ:
-        # "authorization service that uses UserService").
         return await self._user_service.register(login, password)
 
-    async def authenticate(self, authorization_header: str) -> UUID:
-        login, password = self._decode_basic_auth(authorization_header)
-
+    async def authenticate(self, login: str, password: str) -> Tuple[str, str]:
         user = await self._user_service.get_by_login(login)
         if user is None or not self._user_service.verify_password(user, password):
             raise InvalidCredentialsError()
+        return await self._issue_token_pair(user)
 
-        return user.id
+    async def refresh_access_token(self, refresh_token: str) -> Tuple[str, str]:
+        return await self._rotate(refresh_token)
 
-    @staticmethod
-    def _decode_basic_auth(header_value: str) -> tuple[str, str]:
-        """Разбирает 'Basic base64(login:password)' по RFC 7617."""
-        scheme, _, encoded = header_value.partition(" ")
-        if scheme.lower() != "basic" or not encoded:
-            raise InvalidCredentialsError()
+    async def refresh_refresh_token(self, refresh_token: str) -> Tuple[str, str]:
+        return await self._rotate(refresh_token)
+
+    async def get_user_id_from_access_token(self, access_token: str) -> UUID:
+        if not self._jwt_provider.validate_access_token(access_token):
+            raise InvalidTokenError("invalid access token")
+        return self._jwt_provider.get_user_id(access_token)
+
+    # ---- внутреннее ----------------------------------------------------
+
+    async def _rotate(self, refresh_token: str) -> Tuple[str, str]:
+        """
+        Проверяет подпись/срок/тип, затем что refreshToken ещё не использован
+        (по записи в refresh_tokens), помечает его использованным и выдаёт
+        новую пару. Все причины отказа сводятся к одному InvalidTokenError.
+        """
+        if not self._jwt_provider.validate_refresh_token(refresh_token):
+            raise InvalidTokenError("invalid refresh token")
 
         try:
-            decoded = b64decode(encoded, validate=True).decode("utf-8")
-        except (binascii.Error, ValueError, UnicodeDecodeError):
-            raise InvalidCredentialsError()
+            jti = UUID(self._jwt_provider.get_jti(refresh_token))
+        except ValueError:
+            raise InvalidTokenError("invalid refresh token")
 
-        login, separator, password = decoded.partition(":")
-        if not separator:
-            raise InvalidCredentialsError()
+        record = await self._refresh_token_repo.find_by_jti(jti)
+        if record is None or record.used:
+            # Неизвестный jti или повторное использование — оба случая
+            # неотличимы для клиента (защита от replay-атаки).
+            raise InvalidTokenError("invalid refresh token")
 
-        return login, password
+        record.used = True
+        await self._refresh_token_repo.save(record)
+
+        user = await self._user_service.get_by_id(record.user_id)
+        if user is None:
+            raise InvalidTokenError("invalid refresh token")
+
+        return await self._issue_token_pair(user)
+
+    async def _issue_token_pair(self, user: User) -> Tuple[str, str]:
+        access_token = self._jwt_provider.generate_access_token(user)
+        refresh_token = self._jwt_provider.generate_refresh_token(user)
+
+        jti = UUID(self._jwt_provider.get_jti(refresh_token))
+        await self._refresh_token_repo.save(
+            RefreshTokenRecord(
+                jti=jti,
+                user_id=user.id,
+                used=False,
+                expires_at=datetime.now(timezone.utc) + self._refresh_expires,
+            )
+        )
+        return access_token, refresh_token

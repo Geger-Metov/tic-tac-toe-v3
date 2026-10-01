@@ -1,12 +1,10 @@
-import base64
-
-
 async def _signup(client, login: str, password: str = "secret123") -> tuple[str, dict]:
     response = await client.post("/auth/signup", json={"login": login, "password": password})
     assert response.status_code == 201, response.text
     user_id = response.json()["id"]
-    token = base64.b64encode(f"{login}:{password}".encode()).decode()
-    return user_id, {"Authorization": f"Basic {token}"}
+    response = await client.post("/auth/login", json={"login": login, "password": password})
+    assert response.status_code == 200, response.text
+    return user_id, {"Authorization": f"Bearer {response.json()['accessToken']}"}
 
 
 async def test_create_game_vs_computer(client):

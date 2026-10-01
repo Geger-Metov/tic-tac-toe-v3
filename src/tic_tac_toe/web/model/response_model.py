@@ -30,8 +30,10 @@ class SignUpResponse(BaseModel):
     id: UUID
 
 
-class LoginResponse(BaseModel):
-    user_id: UUID
+class JwtResponse(BaseModel):
+    type: str = "Bearer"
+    accessToken: str
+    refreshToken: str
 
 
 class UserResponse(BaseModel):

@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from typing import AsyncGenerator
@@ -11,6 +12,10 @@ _project_root = Path(__file__).resolve().parent.parent
 _src = _project_root / "src"
 if _src.is_dir() and str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
+
+# Секрет нужен Container при создании приложения; для тестов подойдёт любой
+# фиксированный (реальный из .env, если задан, имеет приоритет).
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-not-for-production")
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient

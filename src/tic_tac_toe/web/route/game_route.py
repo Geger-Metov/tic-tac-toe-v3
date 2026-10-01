@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status,Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -43,7 +43,7 @@ async def create_game(
 # так и не дойдя до этого обработчика.
 @router.get("/available", response_model=list[GameResponse])
 async def list_available_games(
-service: IGameService = Depends(get_game_service),
+    service: IGameService = Depends(get_game_service),
 ):
     """Игры, ожидающие второго игрока-человека (создатель ждёт присоединения)."""
     games = await service.get_available_games()
