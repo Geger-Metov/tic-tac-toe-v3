@@ -52,6 +52,7 @@ class GameService(IGameService):
             player_o_id=user_id,
             # Создатель (X) всегда ходит первым.
             state=PlayerTurn(game.player_x_id),
+            created_at=game.created_at
         )
         await self._repo.save(joined_game)
         return joined_game
@@ -114,6 +115,7 @@ class GameService(IGameService):
             player_x_id=game.player_x_id,
             player_o_id=game.player_o_id,
             state=new_state,
+            created_at=game.created_at,
         )
 
     # ---- Minimax для хода компьютера (компьютер всегда играет за O) ---------

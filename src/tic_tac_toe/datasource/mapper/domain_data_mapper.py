@@ -16,6 +16,7 @@ def to_data(domain: DomainGame) -> GameModel:
         player_o_id=domain.player_o_id,
         status=status,
         status_player_id=status_player_id,
+        created_at=domain.created_at,
     )
 
 
@@ -26,6 +27,7 @@ def to_domain(data: GameModel) -> DomainGame:
         player_x_id=data.player_x_id,
         player_o_id=data.player_o_id,
         state=_columns_to_state(data.status, data.status_player_id),
+        created_at=data.created_at,
     )
 
 

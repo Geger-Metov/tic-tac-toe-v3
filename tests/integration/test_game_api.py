@@ -144,3 +144,87 @@ async def test_get_unknown_user_404(client):
     )
 
     assert response.status_code == 404
+
+
+# ---- история игр -----------------------------------------------------------
+
+X_WINS = [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2)]
+
+
+async def _play_moves(client, game_id, players, moves):
+    """players = [(headers_X, 1), (headers_O, -1)]; ходы по очереди, X первым."""
+    grid = [[0] * 3 for _ in range(3)]
+    response = None
+    for i, (row, col) in enumerate(moves):
+        headers, symbol = players[i % 2]
+        grid[row][col] = symbol
+        response = await client.patch(
+            f"/game/{game_id}",
+            json={"board": {"grid": [r[:] for r in grid]}},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def _finished_human_game(client, x_headers, o_headers):
+    created = await client.post("/game", json={"vs_computer": False}, headers=x_headers)
+    game_id = created.json()["id"]
+    await client.post(f"/game/{game_id}/join", headers=o_headers)
+    final = await _play_moves(client, game_id, [(x_headers, 1), (o_headers, -1)], X_WINS)
+    assert final["state"]["status"] == "WIN"
+    return game_id
+
+
+async def test_history_requires_auth(client):
+    response = await client.get("/game/history")
+
+    assert response.status_code == 401
+
+
+async def test_history_is_empty_for_new_user(client):
+    _, headers = await _signup(client, "hist_empty")
+
+    response = await client.get("/game/history", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_history_lists_finished_games_for_both_players(client):
+    _, alice = await _signup(client, "hist_alice")
+    _, bob = await _signup(client, "hist_bob")
+    _, carol = await _signup(client, "hist_carol")
+    game_id = await _finished_human_game(client, alice, bob)
+
+    for headers in (alice, bob):
+        response = await client.get("/game/history", headers=headers)
+        assert response.status_code == 200
+        body = response.json()
+        assert [g["id"] for g in body] == [game_id]
+        assert body[0]["state"]["status"] == "WIN"
+        assert body[0]["created_at"]
+
+    # посторонний пользователь чужую историю не видит
+    assert (await client.get("/game/history", headers=carol)).json() == []
+
+
+async def test_history_excludes_unfinished_games(client):
+    _, alice = await _signup(client, "hist_unfinished_a")
+    _, bob = await _signup(client, "hist_unfinished_b")
+    await client.post("/game", json={"vs_computer": True}, headers=alice)   # идёт
+    await client.post("/game", json={"vs_computer": False}, headers=alice)  # ждёт соперника
+    finished_id = await _finished_human_game(client, alice, bob)
+
+    response = await client.get("/game/history", headers=alice)
+
+    assert [g["id"] for g in response.json()] == [finished_id]
+
+
+async def test_game_response_contains_created_at(client):
+    _, headers = await _signup(client, "hist_created_at")
+
+    response = await client.post("/game", json={"vs_computer": True}, headers=headers)
+
+    assert response.status_code == 201
+    assert response.json()["created_at"]

@@ -1,6 +1,8 @@
 from enum import Enum
 from uuid import UUID, uuid4
+from datetime import datetime
 from typing import Optional
+from sqlalchemy import DateTime, func
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql.json import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -20,12 +22,6 @@ class GameStatus(str, Enum):
 
 
 class GameModel(Base):
-    """
-    SQLAlchemy-модель игры — она же представление данных на уровне datasource
-    (отдельный DTO GameData здесь не заводим: см. ответ на вопрос из TЗ-разбора
-    "нужен ли тебе прежний DataGame как DTO" — не нужен, дублировал бы GameModel
-    один в один без своей ответственности).
-    """
     __tablename__ = "games"
 
     id: Mapped[UUID] = mapped_column(
@@ -49,4 +45,11 @@ class GameModel(Base):
     # status_player_id) — ответственность мапера (datasource/mapper).
     status_player_id: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True), nullable=True
+    )
+
+    # server_default нужен не приложению (оно всегда передаёт значение явно),
+    # а миграции: добавить NOT NULL колонку в таблицу, где уже есть строки,
+    # можно только если у колонки есть значение по умолчанию для них.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )

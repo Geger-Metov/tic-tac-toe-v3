@@ -17,6 +17,7 @@ from tic_tac_toe.infrastructure.security.jwt_config import (
     get_refresh_token_expires,
 )
 
+
 class Container:
     """
     DI-контейнер.

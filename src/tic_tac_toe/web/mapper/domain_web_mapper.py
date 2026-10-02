@@ -19,6 +19,7 @@ class GameWebMapper:
             player_o_id=domain.player_o_id,
             vs_computer=domain.is_vs_computer,
             state=GameWebMapper._state_to_response(domain),
+            created_at=domain.created_at,
         )
 
     @staticmethod

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status,Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -47,6 +47,19 @@ async def list_available_games(
 ):
     """Игры, ожидающие второго игрока-человека (создатель ждёт присоединения)."""
     games = await service.get_available_games()
+    return [GameWebMapper.domain_to_response(g) for g in games]
+
+
+# Как и "/available", объявлен РАНЬШЕ "/{game_id}" — иначе "history" будет
+# принят за UUID и запрос получит 422.
+@router.get("/history", response_model=list[GameResponse])
+async def list_finished_games(
+    service: IGameService = Depends(get_game_service),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Завершённые игры (победа/ничья) текущего пользователя — определяется
+    по accessToken, а не по параметру запроса: чужую историю так не получить."""
+    games = await service.get_finished_games_by_user(user_id)
     return [GameWebMapper.domain_to_response(g) for g in games]
 
 

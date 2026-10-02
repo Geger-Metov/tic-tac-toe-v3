@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from uuid import UUID
 from typing import Optional
+from datetime import datetime
 
 
 class BoardResponse(BaseModel):
@@ -23,6 +24,7 @@ class GameResponse(BaseModel):
     player_o_id: Optional[UUID]
     vs_computer: bool
     state: GameStateResponse
+    created_at: datetime
 
 
 class SignUpResponse(BaseModel):

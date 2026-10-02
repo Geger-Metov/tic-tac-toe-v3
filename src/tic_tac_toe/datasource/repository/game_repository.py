@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.model.game import Game as DomainGame
@@ -29,3 +29,18 @@ class GameRepo:
         stmt = select(GameModel).where(GameModel.status == GameStatus.WAITING_FOR_PLAYER)
         res = await self._session.execute(stmt)
         return [to_domain(model) for model in res.scalars().all()]
+
+    async def find_finished_by_user(self, user_id: UUID) -> list[DomainGame]:
+        """
+        Завершённые игры пользователя (он X или O): статус WIN или DRAW.
+        Сначала самые новые. Фильтрация целиком на стороне БД, а не в Python —
+        иначе пришлось бы тянуть вообще все игры и отсеивать их в памяти.
+        """
+        stmt = (
+            select(GameModel)
+            .where(GameModel.status.in_([GameStatus.WIN, GameStatus.DRAW]))
+            .where(or_(GameModel.player_x_id == user_id, GameModel.player_o_id == user_id))
+            .order_by(GameModel.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return [to_domain(model) for model in result.scalars().all()]

@@ -12,7 +12,7 @@ from tic_tac_toe.domain.exception.game_exceptions import (
 )
 from tic_tac_toe.domain.model.board import Board
 from tic_tac_toe.domain.model.game import COMPUTER_ID
-from tic_tac_toe.domain.model.game_state import PlayerTurn, WaitingForPlayer, Win
+from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
 
 
 class FakeGameRepo:
@@ -31,6 +31,13 @@ class FakeGameRepo:
 
     async def find_waiting_games(self):
         return [g for g in self.store.values() if isinstance(g.state, WaitingForPlayer)]
+
+    async def find_finished_by_user(self, user_id):
+        finished = [
+            g for g in self.store.values()
+            if isinstance(g.state, (Win, Draw)) and user_id in (g.player_x_id, g.player_o_id)
+        ]
+        return sorted(finished, key=lambda g: g.created_at, reverse=True)
 
 
 @pytest.fixture
@@ -182,3 +189,78 @@ async def test_computer_responds_within_same_call(service):
 async def test_unknown_game_raises_not_found(service):
     with pytest.raises(GameNotFoundError):
         await service.get_game_by_id(uuid4())
+
+
+# ---- история игр -----------------------------------------------------------
+
+X_WINS = [(0, 0), (1, 0), (0, 1), (1, 1), (0, 2)]  # X берёт верхнюю строку
+DRAW = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 0), (1, 2), (2, 1), (2, 0), (2, 2)]
+
+
+async def play_moves(service, game, moves):
+    """Играет ходы по очереди (X первым) за двух людей, возвращает итоговую игру."""
+    grid = [[0] * 3 for _ in range(3)]
+    players = [(game.player_x_id, 1), (game.player_o_id, -1)]
+    result = game
+    for i, (row, col) in enumerate(moves):
+        player_id, symbol = players[i % 2]
+        grid[row][col] = symbol
+        result = await service.make_move(
+            game.id, player_id, Board(grid=[r[:] for r in grid])
+        )
+    return result
+
+
+async def new_human_game(service, x, o):
+    game = await service.create_game(creator_id=x, vs_computer=False)
+    return await service.join_game(game.id, o)
+
+
+async def test_created_at_is_set_and_preserved(service):
+    alice, bob = uuid4(), uuid4()
+    created = await service.create_game(creator_id=alice, vs_computer=False)
+    joined = await service.join_game(created.id, bob)
+    after_move = await service.make_move(
+        created.id, alice, Board(grid=[[1, 0, 0], [0, 0, 0], [0, 0, 0]])
+    )
+
+    assert created.created_at is not None
+    assert created.created_at.tzinfo is not None  # UTC, не "наивное" время
+    assert joined.created_at == created.created_at
+    assert after_move.created_at == created.created_at
+
+
+async def test_finished_games_include_win_and_draw_for_both_players(service):
+    alice, bob = uuid4(), uuid4()
+    won = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
+    drawn = await play_moves(service, await new_human_game(service, alice, bob), DRAW)
+    assert isinstance(won.state, Win)
+    assert isinstance(drawn.state, Draw)
+
+    for user in (alice, bob):
+        history = await service.get_finished_games_by_user(user)
+        assert {g.id for g in history} == {won.id, drawn.id}
+
+
+async def test_finished_games_exclude_unfinished_and_foreign(service):
+    alice, bob, carol, dave = uuid4(), uuid4(), uuid4(), uuid4()
+    finished = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
+    await new_human_game(service, alice, carol)                     # идёт, ходов нет
+    await service.create_game(creator_id=alice, vs_computer=False)  # ждёт соперника
+    await service.create_game(creator_id=alice, vs_computer=True)   # идёт против компьютера
+    await play_moves(service, await new_human_game(service, carol, dave), X_WINS)  # чужая
+
+    history = await service.get_finished_games_by_user(alice)
+
+    assert [g.id for g in history] == [finished.id]
+    assert await service.get_finished_games_by_user(uuid4()) == []
+
+
+async def test_finished_games_newest_first(service):
+    alice, bob = uuid4(), uuid4()
+    first = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
+    second = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
+
+    history = await service.get_finished_games_by_user(alice)
+
+    assert [g.id for g in history] == [second.id, first.id]

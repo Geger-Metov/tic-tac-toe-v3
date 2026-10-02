@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -27,6 +28,10 @@ class Game:
     # иначе — UUID второго игрока-человека, который уже присоединился.
     player_o_id: Optional[UUID]
     state: GameState
+    # Дата создания игры (UTC). Неизменна на всём жизненном цикле игры —
+    # каждый раз, когда мы пересобираем Game после хода/join, её нужно
+    # переносить как есть (см. game_service_impl.py).
+    created_at: datetime
 
     @classmethod
     def create_new(cls, creator_id: UUID, vs_computer: bool) -> "Game":
@@ -40,6 +45,7 @@ class Game:
                 player_x_id=creator_id,
                 player_o_id=COMPUTER_ID,
                 state=PlayerTurn(creator_id),
+                created_at=datetime.now(timezone.utc),
             )
         return cls(
             id=uuid4(),
@@ -47,6 +53,7 @@ class Game:
             player_x_id=creator_id,
             player_o_id=None,
             state=WaitingForPlayer(),
+            created_at=datetime.now(timezone.utc),
         )
 
     @property

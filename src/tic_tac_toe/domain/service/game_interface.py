@@ -31,6 +31,11 @@ class IGameService(ABC):
         pass
 
     @abstractmethod
+    async def get_finished_games_by_user(self, user_id: UUID) -> list[Game]:
+        """Завершённые (победа или ничья) игры, где пользователь был X или O."""
+        pass
+
+    @abstractmethod
     async def join_game(self, game_id: UUID, user_id: UUID) -> Game:
         """Кидает GameNotFoundError / GameNotJoinableError."""
         pass

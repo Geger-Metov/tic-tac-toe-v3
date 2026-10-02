@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
-# paste in console "uv add pyjwt" when internet start work again
 import jwt
 
 from tic_tac_toe.domain.exception.auth_exceptions import InvalidTokenError
