@@ -42,5 +42,6 @@ class JwtRequest(BaseModel):
     login: str
     password: str
 
+
 class RefreshJwtRequest(BaseModel):
     refreshToken: str

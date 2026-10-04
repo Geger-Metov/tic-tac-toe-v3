@@ -1,6 +1,6 @@
 [project]
 name = "tic-tac-toe-v3"
-version = "0.1.0"
+version = "0.3.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -35,6 +35,7 @@ package = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 # Позволяет тестам делать "import tic_tac_toe" без --app-dir/PYTHONPATH —
 # pytest сам добавляет src/ в sys.path перед сбором тестов.
 pythonpath = ["src"]

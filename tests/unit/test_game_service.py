@@ -13,6 +13,7 @@ from tic_tac_toe.domain.exception.game_exceptions import (
 from tic_tac_toe.domain.model.board import Board
 from tic_tac_toe.domain.model.game import COMPUTER_ID
 from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
+from tic_tac_toe.domain.model.player_rating import PlayerRating
 
 
 class FakeGameRepo:
@@ -22,6 +23,8 @@ class FakeGameRepo:
 
     def __init__(self) -> None:
         self.store = {}
+        self.ratings = []  # то, что "вернёт БД" на find_top_players
+        self.last_top_n = None
 
     async def save(self, game) -> None:
         self.store[game.id] = game
@@ -31,6 +34,10 @@ class FakeGameRepo:
 
     async def find_waiting_games(self):
         return [g for g in self.store.values() if isinstance(g.state, WaitingForPlayer)]
+
+    async def find_top_players(self, n):
+        self.last_top_n = n
+        return self.ratings[:n]
 
     async def find_finished_by_user(self, user_id):
         finished = [
@@ -264,3 +271,54 @@ async def test_finished_games_newest_first(service):
     history = await service.get_finished_games_by_user(alice)
 
     assert [g.id for g in history] == [second.id, first.id]
+
+
+# ---- лидерборд -------------------------------------------------------------
+# Сам SQL-запрос здесь не проверяется (фейковый репозиторий) — это делают
+# интеграционные тесты. Тут: расчёт коэффициента и поведение сервиса.
+
+def rating(wins, losses, draws, login="p"):
+    return PlayerRating(user_id=uuid4(), login=login, wins=wins, losses=losses, draws=draws)
+
+
+def test_win_ratio_is_share_of_finished_games():
+    assert rating(2, 1, 0).win_ratio == 2 / 3
+    assert rating(1, 1, 2).win_ratio == 0.25
+    assert rating(3, 0, 0).win_ratio == 1.0
+    assert rating(0, 2, 1).win_ratio == 0.0
+
+
+def test_win_ratio_without_games_is_zero():
+    assert rating(0, 0, 0).games == 0
+    assert rating(0, 0, 0).win_ratio == 0.0
+
+
+def test_win_ratio_ranks_like_wins_to_losses_and_draws():
+    """Доля побед упорядочивает игроков так же, как буквальное отношение из ТЗ
+    wins / (losses + draws), но определена и для непобеждённых игроков."""
+    players = [rating(5, 0, 0), rating(4, 1, 0), rating(2, 1, 1), rating(1, 3, 0), rating(0, 1, 0)]
+
+    by_share = sorted(players, key=lambda p: -p.win_ratio)
+    by_literal = sorted(
+        players,
+        key=lambda p: -(p.wins / (p.losses + p.draws) if p.losses + p.draws else float("inf")),
+    )
+
+    assert by_share == by_literal
+
+
+async def test_top_players_passes_n_to_repo(service):
+    top = [rating(3, 0, 0, "a"), rating(1, 1, 0, "b")]
+    service._repo.ratings = top
+
+    assert await service.get_top_players(2) == top
+    assert service._repo.last_top_n == 2
+    assert await service.get_top_players(1) == top[:1]
+
+
+async def test_top_players_with_non_positive_n_is_empty_and_skips_repo(service):
+    service._repo.ratings = [rating(3, 0, 0)]
+
+    assert await service.get_top_players(0) == []
+    assert await service.get_top_players(-5) == []
+    assert service._repo.last_top_n is None

@@ -10,6 +10,7 @@ from tic_tac_toe.domain.exception.game_exceptions import (
 from tic_tac_toe.domain.model.board import Board
 from tic_tac_toe.domain.model.game import COMPUTER_ID, Game, O_SYMBOL, X_SYMBOL
 from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, Win
+from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.domain.service.game_interface import IGameService
 from tic_tac_toe.datasource.repository.game_repository import GameRepo
 
@@ -37,6 +38,14 @@ class GameService(IGameService):
     async def get_available_games(self) -> list[Game]:
         return await self._repo.find_waiting_games()
 
+    async def get_finished_games_by_user(self, user_id: UUID) -> list[Game]:
+        return await self._repo.find_finished_by_user(user_id)
+
+    async def get_top_players(self, n: int) -> list[PlayerRating]:
+        if n < 1:
+            return []
+        return await self._repo.find_top_players(n)
+
     async def join_game(self, game_id: UUID, user_id: UUID) -> Game:
         game = await self.get_game_by_id(game_id)
 
@@ -52,7 +61,7 @@ class GameService(IGameService):
             player_o_id=user_id,
             # Создатель (X) всегда ходит первым.
             state=PlayerTurn(game.player_x_id),
-            created_at=game.created_at
+            created_at=game.created_at,
         )
         await self._repo.save(joined_game)
         return joined_game

@@ -16,7 +16,11 @@ from tic_tac_toe.web.model.request_model import CreateGameRequest, MoveRequest
 from tic_tac_toe.web.model.response_model import GameResponse
 from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 
-router = APIRouter(prefix="/game", tags=["game"])
+router = APIRouter(
+    prefix="/game", 
+    tags=["game"],
+    dependencies=[Depends(get_current_user_id)],
+)
 
 
 def get_game_service(

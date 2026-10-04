@@ -1,9 +1,14 @@
-from tic_tac_toe.domain.model.game import Game as DomainGame
 from tic_tac_toe.domain.model.board import Board as DomainBoard
+from tic_tac_toe.domain.model.game import Game as DomainGame
 from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
+from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.web.model.request_model import BoardRequest
-from tic_tac_toe.web.model.response_model import GameResponse, BoardResponse, GameStateResponse
-
+from tic_tac_toe.web.model.response_model import (
+    BoardResponse,
+    GameResponse,
+    GameStateResponse,
+    LeaderboardEntryResponse,
+)
 
 class GameWebMapper:
     @staticmethod
@@ -20,6 +25,14 @@ class GameWebMapper:
             vs_computer=domain.is_vs_computer,
             state=GameWebMapper._state_to_response(domain),
             created_at=domain.created_at,
+        )
+
+    @staticmethod
+    def rating_to_response(rating: PlayerRating) -> LeaderboardEntryResponse:
+        return LeaderboardEntryResponse(
+            user_id=rating.user_id,
+            login=rating.login,
+            win_ratio=rating.win_ratio,
         )
 
     @staticmethod

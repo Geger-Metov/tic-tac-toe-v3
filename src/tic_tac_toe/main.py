@@ -1,8 +1,10 @@
+# main.py
 from fastapi import FastAPI
 
 from tic_tac_toe.web.route.game_route import router as game_router
 from tic_tac_toe.web.route.auth_route import router as auth_router
 from tic_tac_toe.web.route.user_route import router as user_router
+from tic_tac_toe.web.route.leaderboard_route import router as leaderboard_router
 from tic_tac_toe.di.container import Container
 
 # Схему БД теперь целиком создаёт/версионирует Alembic (см. migrations/ и
@@ -26,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(game_router)
     app.include_router(user_router)
+    app.include_router(leaderboard_router)
     return app
 
 

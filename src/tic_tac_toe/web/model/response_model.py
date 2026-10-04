@@ -27,6 +27,12 @@ class GameResponse(BaseModel):
     created_at: datetime
 
 
+class LeaderboardEntryResponse(BaseModel):
+    user_id: UUID
+    login: str
+    win_ratio: float  # доля побед среди завершённых игр, 0.0..1.0
+
+
 class SignUpResponse(BaseModel):
     success: bool
     id: UUID

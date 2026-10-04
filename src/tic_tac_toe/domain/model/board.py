@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class Board:
    grid: list[list[int]]

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from tic_tac_toe.domain.model.board import Board
 from tic_tac_toe.domain.model.game import Game
+from tic_tac_toe.domain.model.player_rating import PlayerRating
 
 
 class IGameService(ABC):
@@ -33,6 +34,11 @@ class IGameService(ABC):
     @abstractmethod
     async def get_finished_games_by_user(self, user_id: UUID) -> list[Game]:
         """Завершённые (победа или ничья) игры, где пользователь был X или O."""
+        pass
+
+    @abstractmethod
+    async def get_top_players(self, n: int) -> list[PlayerRating]:
+        """Топ-N игроков по доле побед (лучшие первыми). n < 1 даёт пустой список."""
         pass
 
     @abstractmethod

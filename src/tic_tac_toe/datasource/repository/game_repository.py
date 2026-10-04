@@ -1,11 +1,13 @@
 from uuid import UUID
 from typing import Optional
-from sqlalchemy import or_, select
+from sqlalchemy import or_, and_, select, cast, desc, union_all, func, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.model.game import Game as DomainGame
+from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.datasource.mapper.domain_data_mapper import to_data, to_domain
 from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel, GameStatus
+from tic_tac_toe.infrastructure.persistence.model.user_model import UserModel
 
 
 class GameRepo:
@@ -44,3 +46,61 @@ class GameRepo:
         )
         result = await self._session.execute(stmt)
         return [to_domain(model) for model in result.scalars().all()]
+
+    async def find_top_players(self, n: int) -> list[PlayerRating]:
+        """
+        Топ-N игроков по доле побед — одним запросом, всё считает БД:
+
+          1. "participation" — по одной строке на каждое участие в завершённой
+             игре: игра как X плюс игра как O (UNION ALL), с исходом игры.
+          2. Группируем по пользователю и считаем побед/поражений/ничьих
+             через count(*) FILTER (WHERE ...).
+          3. Сортируем по доле побед по убыванию и берём первые N.
+
+        INNER JOIN с users исключает компьютер: его nil-UUID (COMPUTER_ID)
+        в таблице users не существует, так что строки с ним отсеиваются сами.
+        Игроки без единой завершённой игры в выборку тоже не попадают —
+        коэффициент у них не определён.
+        """
+        finished = [GameStatus.WIN, GameStatus.DRAW]
+
+        as_x = select(
+            GameModel.player_x_id.label("user_id"),
+            GameModel.status.label("status"),
+            GameModel.status_player_id.label("winner_id"),
+        ).where(GameModel.status.in_(finished))
+
+        as_o = select(
+            GameModel.player_o_id.label("user_id"),
+            GameModel.status.label("status"),
+            GameModel.status_player_id.label("winner_id"),
+        ).where(GameModel.status.in_(finished), GameModel.player_o_id.is_not(None))
+
+        participation = union_all(as_x, as_o).subquery("participation")
+        p = participation.c
+
+        wins = func.count().filter(and_(p.status == GameStatus.WIN, p.winner_id == p.user_id))
+        losses = func.count().filter(and_(p.status == GameStatus.WIN, p.winner_id != p.user_id))
+        draws = func.count().filter(p.status == GameStatus.DRAW)
+        win_ratio = cast(wins, Float) / func.count()
+
+        stmt = (
+            select(
+                UserModel.id,
+                UserModel.login,
+                wins.label("wins"),
+                losses.label("losses"),
+                draws.label("draws"),
+            )
+            .select_from(participation.join(UserModel, UserModel.id == p.user_id))
+            .group_by(UserModel.id, UserModel.login)
+            # При равной доле — у кого больше побед, затем по логину: порядок
+            # детерминирован, а не зависит от того, как БД решит раскладывать строки.
+            .order_by(desc(win_ratio), desc(wins), UserModel.login)
+            .limit(n)
+        )
+        result = await self._session.execute(stmt)
+        return [
+            PlayerRating(user_id=user_id, login=login, wins=w, losses=l, draws=d)
+            for user_id, login, w, l, d in result.all()
+        ]

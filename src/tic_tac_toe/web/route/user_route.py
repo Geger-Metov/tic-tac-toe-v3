@@ -7,7 +7,11 @@ from tic_tac_toe.infrastructure.database.session import get_db_session
 from tic_tac_toe.web.model.response_model import UserResponse
 from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(
+    prefix="/users", 
+    tags=["users"],
+    dependencies=[Depends(get_current_user_id)],
+)
 
 
 def get_user_service(
