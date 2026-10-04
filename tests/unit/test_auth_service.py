@@ -41,9 +41,25 @@ class FakeRefreshRepo:
     async def find_by_jti(self, jti):
         return self.store.get(jti)
 
+    async def mark_used_if_unused(self, jti):
+        record = self.store.get(jti)
+        if record is None or record.used:
+            return False
+        record.used = True
+        return True
+
+
+class LosingRaceRefreshRepo(FakeRefreshRepo):
+    """Токен выглядит неиспользованным при чтении, но к моменту захвата его
+    уже забрал параллельный запрос — захват возвращает False."""
+
+    async def mark_used_if_unused(self, jti):
+        self.store[jti].used = True
+        return False
+
 
 def make_provider(access=timedelta(minutes=15), refresh=timedelta(days=30)):
-    return JwtProvider("test-secret", access, refresh)
+    return JwtProvider("unit-test-secret-key-0123456789-abcdef", access, refresh)
 
 
 @pytest.fixture
@@ -125,8 +141,21 @@ async def test_expired_access_token_rejected(users):
 
 async def test_token_signed_with_other_secret_rejected(service, users):
     users.add("alice", "secret123")
-    other = JwtProvider("another-secret", timedelta(minutes=15), timedelta(days=30))
+    other = JwtProvider("another-unit-test-secret-9876543210-fedcba", timedelta(minutes=15), timedelta(days=30))
     forged = other.generate_access_token(next(iter(users.users.values())))
 
     with pytest.raises(InvalidTokenError):
         await service.get_user_id_from_access_token(forged)
+
+
+async def test_losing_the_refresh_race_issues_no_tokens(users):
+    repo = LosingRaceRefreshRepo()
+    service = AuthService(users, make_provider(), repo, timedelta(days=30))
+    users.add("alice", "secret123")
+    _, refresh = await service.authenticate("alice", "secret123")
+    records_before = len(repo.store)
+
+    with pytest.raises(InvalidTokenError):
+        await service.refresh_access_token(refresh)
+
+    assert len(repo.store) == records_before  # новая пара не выдавалась и не регистрировалась

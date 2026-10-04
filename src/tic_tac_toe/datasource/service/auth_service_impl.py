@@ -61,13 +61,16 @@ class AuthService(IAuthService):
             raise InvalidTokenError("invalid refresh token")
 
         record = await self._refresh_token_repo.find_by_jti(jti)
-        if record is None or record.used:
-            # Неизвестный jti или повторное использование — оба случая
-            # неотличимы для клиента (защита от replay-атаки).
+        if record is None:
             raise InvalidTokenError("invalid refresh token")
 
-        record.used = True
-        await self._refresh_token_repo.save(record)
+        # Единственная проверка "ещё не использован" — атомарный захват в БД
+        # (см. RefreshTokenRepo.mark_used_if_unused). Нельзя заменить на
+        # "прочитал record.used, потом записал": при двух параллельных
+        # запросах оба прошли бы проверку. Повторное использование и проигрыш
+        # гонки клиенту неотличимы от остальных причин отказа.
+        if not await self._refresh_token_repo.mark_used_if_unused(jti):
+            raise InvalidTokenError("invalid refresh token")
 
         user = await self._user_service.get_by_id(record.user_id)
         if user is None:
