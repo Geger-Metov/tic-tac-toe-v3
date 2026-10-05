@@ -1,11 +1,11 @@
 from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.exception.auth_exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
+    TooManyLoginAttemptsError,
     UserAlreadyExistsError,
 )
 from tic_tac_toe.domain.service.auth_interface import IAuthService
@@ -51,6 +51,12 @@ async def login(request_data: JwtRequest, service: IAuthService = Depends(get_au
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid login or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    except TooManyLoginAttemptsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts, try again later",
+            headers={"Retry-After": str(e.retry_after_seconds)},
         )
     return JwtResponse(accessToken=access, refreshToken=refresh)
 

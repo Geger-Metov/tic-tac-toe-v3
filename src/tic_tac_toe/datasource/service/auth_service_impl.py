@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Tuple
 from uuid import UUID
 
-from tic_tac_toe.datasource.repository.refresh_token_repository import RefreshTokenRepo
+from tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
+from tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
 from tic_tac_toe.domain.exception.auth_exceptions import InvalidCredentialsError, InvalidTokenError
-from tic_tac_toe.domain.model.refresh_token import RefreshTokenRecord
 from tic_tac_toe.domain.model.user import User
 from tic_tac_toe.domain.service.auth_interface import IAuthService
 from tic_tac_toe.domain.service.jwt_interface import IJwtProvider
@@ -16,21 +16,32 @@ class AuthService(IAuthService):
         self,
         user_service: IUserService,
         jwt_provider: IJwtProvider,
-        refresh_token_repo: RefreshTokenRepo,
+        refresh_tokens: RefreshTokenStore,
+        login_limiter: LoginRateLimiter,
         refresh_expires: timedelta,
     ) -> None:
         self._user_service = user_service
         self._jwt_provider = jwt_provider
-        self._refresh_token_repo = refresh_token_repo
+        self._refresh_tokens = refresh_tokens
+        self._login_limiter = login_limiter
         self._refresh_expires = refresh_expires
 
     async def register(self, login: str, password: str) -> User:
         return await self._user_service.register(login, password)
 
     async def authenticate(self, login: str, password: str) -> Tuple[str, str]:
+        # Попытка засчитывается СРАЗУ и атомарно, до проверки пароля — иначе
+        # параллельные запросы обходят лимит (подробности в LoginRateLimiter).
+        # У заблокированного логина пароль не проверяется вообще (bcrypt зря
+        # не считается). Считаются и несуществующие логины.
+        await self._login_limiter.begin_attempt(login)
+
         user = await self._user_service.get_by_login(login)
         if user is None or not self._user_service.verify_password(user, password):
+            # Попытка уже засчитана — отдельно "записывать неудачу" не нужно.
             raise InvalidCredentialsError()
+
+        await self._login_limiter.reset(login)
         return await self._issue_token_pair(user)
 
     async def refresh_access_token(self, refresh_token: str) -> Tuple[str, str]:
@@ -48,9 +59,10 @@ class AuthService(IAuthService):
 
     async def _rotate(self, refresh_token: str) -> Tuple[str, str]:
         """
-        Проверяет подпись/срок/тип, затем что refreshToken ещё не использован
-        (по записи в refresh_tokens), помечает его использованным и выдаёт
-        новую пару. Все причины отказа сводятся к одному InvalidTokenError.
+        Проверяет подпись/срок/тип, затем атомарно "захватывает" токен в Redis
+        (RefreshTokenStore.claim = GETDEL) и выдаёт новую пару. Все причины
+        отказа — битая подпись, истёк, не тот тип, неизвестный, уже
+        использованный, проигранная гонка — сводятся к одному InvalidTokenError.
         """
         if not self._jwt_provider.validate_refresh_token(refresh_token):
             raise InvalidTokenError("invalid refresh token")
@@ -60,19 +72,11 @@ class AuthService(IAuthService):
         except ValueError:
             raise InvalidTokenError("invalid refresh token")
 
-        record = await self._refresh_token_repo.find_by_jti(jti)
-        if record is None:
+        user_id = await self._refresh_tokens.claim(jti)
+        if user_id is None:
             raise InvalidTokenError("invalid refresh token")
 
-        # Единственная проверка "ещё не использован" — атомарный захват в БД
-        # (см. RefreshTokenRepo.mark_used_if_unused). Нельзя заменить на
-        # "прочитал record.used, потом записал": при двух параллельных
-        # запросах оба прошли бы проверку. Повторное использование и проигрыш
-        # гонки клиенту неотличимы от остальных причин отказа.
-        if not await self._refresh_token_repo.mark_used_if_unused(jti):
-            raise InvalidTokenError("invalid refresh token")
-
-        user = await self._user_service.get_by_id(record.user_id)
+        user = await self._user_service.get_by_id(user_id)
         if user is None:
             raise InvalidTokenError("invalid refresh token")
 
@@ -83,12 +87,5 @@ class AuthService(IAuthService):
         refresh_token = self._jwt_provider.generate_refresh_token(user)
 
         jti = UUID(self._jwt_provider.get_jti(refresh_token))
-        await self._refresh_token_repo.save(
-            RefreshTokenRecord(
-                jti=jti,
-                user_id=user.id,
-                used=False,
-                expires_at=datetime.now(timezone.utc) + self._refresh_expires,
-            )
-        )
+        await self._refresh_tokens.register(jti, user.id, self._refresh_expires)
         return access_token, refresh_token

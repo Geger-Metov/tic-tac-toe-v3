@@ -13,14 +13,26 @@ _src = _project_root / "src"
 if _src.is_dir() and str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
+# Чтобы тесты могли делать "from fake_redis import FakeRedis" независимо от
+# режима импорта pytest.
+_tests_dir = Path(__file__).resolve().parent
+if str(_tests_dir) not in sys.path:
+    sys.path.insert(0, str(_tests_dir))
+
 # Секрет нужен Container при создании приложения; для тестов подойдёт любой
 # фиксированный (реальный из .env, если задан, имеет приоритет).
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-not-for-production")
+# Лимиты входа фиксируем (а не setdefault): тесты на блокировку рассчитывают
+# на ровно 5 попыток, что бы ни лежало в .env разработчика.
+os.environ["LOGIN_MAX_ATTEMPTS"] = "5"
+os.environ["LOGIN_ATTEMPT_WINDOW_SECONDS"] = "60"
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from fake_redis import FakeRedis
 from tic_tac_toe.infrastructure.database.config import get_database_url
 from tic_tac_toe.infrastructure.database.session import get_db_session
 from tic_tac_toe.main import create_app
@@ -55,15 +67,22 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         await engine.dispose()
 
 
+@pytest.fixture
+def fake_redis() -> FakeRedis:
+    """Свежий in-memory Redis на каждый тест: токены и счётчики попыток входа
+    не протекают между тестами и не требуют запущенного Redis."""
+    return FakeRedis()
+
+
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(db_session: AsyncSession, fake_redis: FakeRedis) -> AsyncGenerator[AsyncClient, None]:
     """
     Обычный httpx-клиент, но без сети: ASGITransport вызывает приложение
     напрямую в процессе теста — не нужен ни поднятый uvicorn, ни /docs,
     ни реальный порт. get_db_session подменён на фикстуру db_session, поэтому
     все запросы через этот клиент используют одну и ту же тестовую транзакцию.
     """
-    app = create_app()
+    app = create_app(redis_client=fake_redis)
 
     async def override_get_db_session() -> AsyncGenerator[AsyncSession, None]:
         yield db_session

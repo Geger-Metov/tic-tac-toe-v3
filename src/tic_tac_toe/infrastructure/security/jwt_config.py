@@ -1,6 +1,10 @@
 import os
 from datetime import timedelta
 
+from tic_tac_toe.infrastructure.env import load_env
+
+load_env()
+
 
 def get_jwt_secret_key() -> str:
     """

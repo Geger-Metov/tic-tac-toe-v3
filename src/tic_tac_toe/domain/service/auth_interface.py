@@ -20,7 +20,8 @@ class IAuthService(ABC):
 
     @abstractmethod
     async def authenticate(self, login: str, password: str) -> Tuple[str, str]:
-        """Кидает InvalidCredentialsError при неверном логине/пароле."""
+        """Кидает InvalidCredentialsError при неверном логине/пароле и
+        TooManyLoginAttemptsError, если для этого логина исчерпан лимит попыток."""
         pass
 
     @abstractmethod

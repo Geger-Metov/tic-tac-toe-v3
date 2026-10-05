@@ -1,6 +1,6 @@
 [project]
 name = "tic-tac-toe-v3"
-version = "0.3.0"
+version = "0.4.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -17,6 +17,7 @@ dependencies = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "python-dotenv>=1.2.3",
+    "redis>=8.1.0",
     "sqlalchemy[asyncio]>=2.1.1",
     "uvicorn>=0.54.0",
 ]

@@ -12,7 +12,6 @@ class InvalidCredentialsError(Exception):
     pass
 
 
-
 class UserAlreadyExistsError(Exception):
     """Пользователь с таким логином уже зарегистрирован — веб-слой превращает это в 409."""
 
@@ -28,3 +27,12 @@ class InvalidTokenError(Exception):
     "уже использован": как и с логином/паролем, разная реакция на разные
     причины невалидности токена превратила бы 401 в оракул для атакующего."""
     pass
+
+
+class TooManyLoginAttemptsError(Exception):
+    """Слишком много неудачных попыток входа — веб-слой превращает это в 429
+    с заголовком Retry-After."""
+
+    def __init__(self, retry_after_seconds: int):
+        super().__init__(f"Too many login attempts, retry in {retry_after_seconds}s")
+        self.retry_after_seconds = retry_after_seconds

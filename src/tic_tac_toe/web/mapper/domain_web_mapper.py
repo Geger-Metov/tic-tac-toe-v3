@@ -10,6 +10,7 @@ from tic_tac_toe.web.model.response_model import (
     LeaderboardEntryResponse,
 )
 
+
 class GameWebMapper:
     @staticmethod
     def board_request_to_domain(request: BoardRequest) -> DomainBoard:

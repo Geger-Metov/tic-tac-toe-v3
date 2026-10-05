@@ -39,8 +39,8 @@ class SignUpRequest(BaseModel):
 
 
 class JwtRequest(BaseModel):
-    login: str
-    password: str
+    login: str = Field(..., max_length=255)
+    password: str = Field(..., max_length=255)
 
 
 class RefreshJwtRequest(BaseModel):

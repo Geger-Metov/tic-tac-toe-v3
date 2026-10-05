@@ -1,7 +1,7 @@
 services:
   # Сервис с базой данных
   db:
-    image: postgres:18-alpine  # Используем готовый официальный образ
+    image: postgres:18-alpine # Используем готовый официальный образ
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -11,16 +11,31 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql # Сохраняем данные в томе
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 5s
 
+  # Redis: refresh-токены и счётчики неудачных попыток входа
+  redis:
+    image: redis:8-alpine
+    # AOF: сохранять записи на диск, чтобы refresh-токены переживали перезапуск
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "${REDIS_PORT:-6379}:6379" # Пробрасываем порт на хост-машину (для отладки и тестов)
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # Сервис с FastAPI-приложением
   app:
-    build: 
-      context: .  # Собираем образ из Dockerfile в текущей директории
+    build:
+      context: . # Собираем образ из Dockerfile в текущей директории
       dockerfile: Dockerfile
     ports:
       - "${APP_PORT}:8000"
@@ -29,8 +44,13 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
       JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS}
+      REDIS_URL: redis://redis:6379/0
+      LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-5}
+      LOGIN_ATTEMPT_WINDOW_SECONDS: ${LOGIN_ATTEMPT_WINDOW_SECONDS:-60}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     develop:
       watch:
@@ -54,7 +74,7 @@ services:
         - action: rebuild
           path: ./docker-entrypoint.sh
 
-
 # Определяем именованный том для хранения данных PostgreSQL
 volumes:
   pgdata:
+  redisdata:

@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, Query
 
 from tic_tac_toe.domain.service.game_interface import IGameService
@@ -16,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=List[LeaderboardEntryResponse])
+@router.get("", response_model=list[LeaderboardEntryResponse])
 async def get_leaderboard(
     # Верхняя граница защищает от запроса "дай мне всех" одним вызовом.
     n: int = Query(default=10, ge=1, le=100, description="Сколько лучших игроков вернуть"),
