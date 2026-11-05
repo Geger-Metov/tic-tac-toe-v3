@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from tic_tac_toe.datasource.repository.game_repository import GameRepo
 from tic_tac_toe.domain.exception.game_exceptions import (
     GameNotFoundError,
     GameNotJoinableError,
@@ -8,11 +9,10 @@ from tic_tac_toe.domain.exception.game_exceptions import (
     NotParticipantError,
 )
 from tic_tac_toe.domain.model.board import Board
-from tic_tac_toe.domain.model.game import COMPUTER_ID, Game, O_SYMBOL, X_SYMBOL
+from tic_tac_toe.domain.model.game import COMPUTER_ID, O_SYMBOL, X_SYMBOL, Game
 from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, Win
 from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.domain.service.game_interface import IGameService
-from tic_tac_toe.datasource.repository.game_repository import GameRepo
 
 
 class GameService(IGameService):
@@ -130,7 +130,7 @@ class GameService(IGameService):
     # ---- Minimax для хода компьютера (компьютер всегда играет за O) ---------
 
     def _compute_best_move(self, board: Board) -> Board:
-        best_score = float('-inf')
+        best_score = float("-inf")
         best_move = None
 
         for i in range(3):
@@ -181,7 +181,7 @@ class GameService(IGameService):
             return self.DRAW_SCORE
 
         if is_maximizing:
-            best = float('-inf')
+            best = float("-inf")
             for i in range(3):
                 for j in range(3):
                     if board.get_cell(i, j) == 0:
@@ -191,7 +191,7 @@ class GameService(IGameService):
                         best = max(best, score)
             return int(best)
         else:
-            best = float('inf')
+            best = float("inf")
             for i in range(3):
                 for j in range(3):
                     if board.get_cell(i, j) == 0:

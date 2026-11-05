@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import jwt
@@ -13,7 +13,9 @@ _REFRESH_TYPE = "refresh"
 
 
 class JwtProvider(IJwtProvider):
-    def __init__(self, secret_key: str, access_expires: timedelta, refresh_expires: timedelta) -> None:
+    def __init__(
+        self, secret_key: str, access_expires: timedelta, refresh_expires: timedelta
+    ) -> None:
         self._secret_key = secret_key
         self._access_expires = access_expires
         self._refresh_expires = refresh_expires
@@ -45,15 +47,18 @@ class JwtProvider(IJwtProvider):
             raise InvalidTokenError("token has no 'jti' claim")
 
     def _generate(self, user: User, expires_delta: timedelta, token_type: str) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
+
         payload = {
-            "sub": str(user.id),   # UUID пользователя — то, что просит ТЗ "saving the UUID in the token"
-            "type": token_type,    # отличает access от refresh — без этого одним и тем же
-                                    # токеном можно было бы пройти оба validate_*_token
+            "sub": str(
+                user.id
+            ),  # UUID пользователя — то, что просит ТЗ "saving the UUID in the token"
+            "type": token_type,  # отличает access от refresh — без этого одним и тем же
+            # токеном можно было бы пройти оба validate_*_token
             "iat": now,
             "exp": now + expires_delta,
             "jti": str(uuid4()),  # уникальный id токена — нужен для отслеживания
-                                        # одноразовости refreshToken на уровне AuthService
+            # одноразовости refreshToken на уровне AuthService
         }
         return jwt.encode(payload, self._secret_key, algorithm=_ALGORITHM)
 

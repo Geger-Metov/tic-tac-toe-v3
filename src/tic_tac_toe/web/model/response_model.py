@@ -1,7 +1,7 @@
-from pydantic import BaseModel
-from uuid import UUID
-from typing import Optional
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class BoardResponse(BaseModel):
@@ -14,14 +14,14 @@ class GameStateResponse(BaseModel):
     # Значение "00000000-0000-0000-0000-000000000000" означает компьютера
     # (см. domain.model.game.COMPUTER_ID) — для удобства клиента то же самое
     # говорит поле vs_computer ниже, на COMPUTER_ID можно не завязываться.
-    player_id: Optional[UUID] = None
+    player_id: UUID | None = None
 
 
 class GameResponse(BaseModel):
     id: UUID
     board: BoardResponse
     player_x_id: UUID
-    player_o_id: Optional[UUID]
+    player_o_id: UUID | None
     vs_computer: bool
     state: GameStateResponse
     created_at: datetime

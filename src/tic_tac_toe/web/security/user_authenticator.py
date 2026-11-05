@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +31,7 @@ async def get_current_user_id(
     if authorization is None or not authorization.startswith(_BEARER_PREFIX):
         raise _unauthorized("Missing or malformed Authorization header")
 
-    token = authorization[len(_BEARER_PREFIX):].strip()
+    token = authorization[len(_BEARER_PREFIX) :].strip()
     try:
         return await auth_service.get_user_id_from_access_token(token)
     except InvalidTokenError:

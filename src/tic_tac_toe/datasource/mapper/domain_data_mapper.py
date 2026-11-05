@@ -1,10 +1,18 @@
-from typing import Optional, Tuple
 from uuid import UUID
 
-from tic_tac_toe.domain.model.game import Game as DomainGame
 from tic_tac_toe.domain.model.board import Board as DomainBoard
-from tic_tac_toe.domain.model.game_state import Draw, GameState, PlayerTurn, WaitingForPlayer, Win
-from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel, GameStatus
+from tic_tac_toe.domain.model.game import Game as DomainGame
+from tic_tac_toe.domain.model.game_state import (
+    Draw,
+    GameState,
+    PlayerTurn,
+    WaitingForPlayer,
+    Win,
+)
+from tic_tac_toe.infrastructure.persistence.model.game_model import (
+    GameModel,
+    GameStatus,
+)
 
 
 def to_data(domain: DomainGame) -> GameModel:
@@ -31,7 +39,7 @@ def to_domain(data: GameModel) -> DomainGame:
     )
 
 
-def _state_to_columns(state: GameState) -> Tuple[GameStatus, Optional[UUID]]:
+def _state_to_columns(state: GameState) -> tuple[GameStatus, UUID | None]:
     if isinstance(state, WaitingForPlayer):
         return GameStatus.WAITING_FOR_PLAYER, None
     if isinstance(state, PlayerTurn):
@@ -43,7 +51,7 @@ def _state_to_columns(state: GameState) -> Tuple[GameStatus, Optional[UUID]]:
     raise ValueError(f"Unknown game state: {state!r}")  # pragma: no cover
 
 
-def _columns_to_state(status: GameStatus, status_player_id: Optional[UUID]) -> GameState:
+def _columns_to_state(status: GameStatus, status_player_id: UUID | None) -> GameState:
     if status == GameStatus.WAITING_FOR_PLAYER:
         return WaitingForPlayer()
     if status == GameStatus.PLAYER_TURN:

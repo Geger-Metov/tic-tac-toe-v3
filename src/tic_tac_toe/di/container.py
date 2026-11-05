@@ -1,5 +1,3 @@
-from typing import Optional
-
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,8 +38,10 @@ class Container:
     если не передан — создаётся настоящий по REDIS_URL.
     """
 
-    def __init__(self, redis_client: Optional[Redis] = None) -> None:
-        self._redis: Redis = redis_client if redis_client is not None else create_redis_client()
+    def __init__(self, redis_client: Redis | None = None) -> None:
+        self._redis: Redis = (
+            redis_client if redis_client is not None else create_redis_client()
+        )
         self._refresh_expires = get_refresh_token_expires()
         self._jwt_provider: IJwtProvider = JwtProvider(
             secret_key=get_jwt_secret_key(),

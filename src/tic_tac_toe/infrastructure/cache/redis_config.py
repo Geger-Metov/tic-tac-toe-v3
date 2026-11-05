@@ -4,6 +4,7 @@ from tic_tac_toe.infrastructure.env import load_env
 
 load_env()
 
+
 def get_redis_url() -> str:
     """
     В Docker (compose.yaml) REDIS_URL приходит готовым: redis://redis:6379/0.
@@ -17,4 +18,3 @@ def get_redis_url() -> str:
     host = os.getenv("REDIS_HOST", "localhost")
     port = os.getenv("REDIS_PORT", "6379")
     return f"redis://{host}:{port}/0"
-        

@@ -1,12 +1,15 @@
 from uuid import UUID
-from typing import Optional
-from sqlalchemy import or_, and_, select, cast, desc, union_all, func, Float
+
+from sqlalchemy import Float, and_, cast, desc, func, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tic_tac_toe.datasource.mapper.domain_data_mapper import to_data, to_domain
 from tic_tac_toe.domain.model.game import Game as DomainGame
 from tic_tac_toe.domain.model.player_rating import PlayerRating
-from tic_tac_toe.datasource.mapper.domain_data_mapper import to_data, to_domain
-from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel, GameStatus
+from tic_tac_toe.infrastructure.persistence.model.game_model import (
+    GameModel,
+    GameStatus,
+)
 from tic_tac_toe.infrastructure.persistence.model.user_model import UserModel
 
 
@@ -20,7 +23,7 @@ class GameRepo:
         # нам не нужно отдельно различать "создание" и "обновление" игры.
         await self._session.merge(data_model)
 
-    async def find_by_id(self, uuid: UUID) -> Optional[DomainGame]:
+    async def find_by_id(self, uuid: UUID) -> DomainGame | None:
         data_model = await self._session.get(GameModel, uuid)
         if data_model is None:
             return None
@@ -28,7 +31,9 @@ class GameRepo:
         return to_domain(data_model)
 
     async def find_waiting_games(self) -> list[DomainGame]:
-        stmt = select(GameModel).where(GameModel.status == GameStatus.WAITING_FOR_PLAYER)
+        stmt = select(GameModel).where(
+            GameModel.status == GameStatus.WAITING_FOR_PLAYER
+        )
         res = await self._session.execute(stmt)
         return [to_domain(model) for model in res.scalars().all()]
 
@@ -41,7 +46,9 @@ class GameRepo:
         stmt = (
             select(GameModel)
             .where(GameModel.status.in_([GameStatus.WIN, GameStatus.DRAW]))
-            .where(or_(GameModel.player_x_id == user_id, GameModel.player_o_id == user_id))
+            .where(
+                or_(GameModel.player_x_id == user_id, GameModel.player_o_id == user_id)
+            )
             .order_by(GameModel.created_at.desc())
         )
         result = await self._session.execute(stmt)
@@ -79,8 +86,12 @@ class GameRepo:
         participation = union_all(as_x, as_o).subquery("participation")
         p = participation.c
 
-        wins = func.count().filter(and_(p.status == GameStatus.WIN, p.winner_id == p.user_id))
-        losses = func.count().filter(and_(p.status == GameStatus.WIN, p.winner_id != p.user_id))
+        wins = func.count().filter(
+            and_(p.status == GameStatus.WIN, p.winner_id == p.user_id)
+        )
+        losses = func.count().filter(
+            and_(p.status == GameStatus.WIN, p.winner_id != p.user_id)
+        )
         draws = func.count().filter(p.status == GameStatus.DRAW)
         win_ratio = cast(wins, Float) / func.count()
 

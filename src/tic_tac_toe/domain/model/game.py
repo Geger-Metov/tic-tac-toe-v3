@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime, timezone
 from uuid import UUID, uuid4
 
 from tic_tac_toe.domain.model.board import Board
@@ -26,7 +25,7 @@ class Game:
     player_x_id: UUID
     # None — ждём второго игрока-человека; COMPUTER_ID — играем с компьютером;
     # иначе — UUID второго игрока-человека, который уже присоединился.
-    player_o_id: Optional[UUID]
+    player_o_id: UUID | None
     state: GameState
     # Дата создания игры (UTC). Неизменна на всём жизненном цикле игры —
     # каждый раз, когда мы пересобираем Game после хода/join, её нужно
@@ -45,7 +44,7 @@ class Game:
                 player_x_id=creator_id,
                 player_o_id=COMPUTER_ID,
                 state=PlayerTurn(creator_id),
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
         return cls(
             id=uuid4(),
@@ -53,7 +52,7 @@ class Game:
             player_x_id=creator_id,
             player_o_id=None,
             state=WaitingForPlayer(),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
     @property
@@ -71,7 +70,7 @@ class Game:
             return O_SYMBOL
         raise ValueError(f"User {user_id} is not a participant of game {self.id}")
 
-    def opponent_of(self, user_id: UUID) -> Optional[UUID]:
+    def opponent_of(self, user_id: UUID) -> UUID | None:
         if user_id == self.player_x_id:
             return self.player_o_id
         if user_id == self.player_o_id:

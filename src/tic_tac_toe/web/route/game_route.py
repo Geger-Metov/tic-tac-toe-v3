@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.exception.game_exceptions import (
     GameNotFoundError,
@@ -17,7 +18,7 @@ from tic_tac_toe.web.model.response_model import GameResponse
 from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 
 router = APIRouter(
-    prefix="/game", 
+    prefix="/game",
     tags=["game"],
     dependencies=[Depends(get_current_user_id)],
 )
@@ -38,7 +39,9 @@ async def create_game(
     user_id: UUID = Depends(get_current_user_id),
 ):
     """Создаёт новую игру с человеком (ждёт второго игрока) или с компьютером."""
-    game = await service.create_game(creator_id=user_id, vs_computer=request_data.vs_computer)
+    game = await service.create_game(
+        creator_id=user_id, vs_computer=request_data.vs_computer
+    )
     return GameWebMapper.domain_to_response(game)
 
 
@@ -75,7 +78,9 @@ async def get_game(
     try:
         game = await service.get_game_by_id(game_id)
     except GameNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Game not found"
+        )
     return GameWebMapper.domain_to_response(game)
 
 
@@ -88,7 +93,9 @@ async def join_game(
     try:
         game = await service.join_game(game_id, user_id)
     except GameNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Game not found"
+        )
     except GameNotJoinableError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     return GameWebMapper.domain_to_response(game)
@@ -107,7 +114,9 @@ async def make_move(
     try:
         game = await service.make_move(game_id, user_id, new_board)
     except GameNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Game not found"
+        )
     except NotParticipantError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

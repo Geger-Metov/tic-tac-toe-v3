@@ -34,7 +34,6 @@ class IJwtProvider(ABC):
         """Кидает InvalidTokenError, если токен нечитаемый (используется и
         для access, и для refresh — тип токена уже должен быть проверен
         отдельно через validate_*_token)."""
-        pass
 
     @abstractmethod
     def get_jti(self, token: str) -> str:
@@ -45,4 +44,3 @@ class IJwtProvider(ABC):
         без этого "single-use" из общего описания задания нечем обеспечить
         на сервере (JWT сам по себе безсостоятелен).
         """
-        pass

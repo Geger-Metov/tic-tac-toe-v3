@@ -24,27 +24,22 @@ class IGameService(ABC):
     @abstractmethod
     async def get_game_by_id(self, id: UUID) -> Game:
         """Кидает GameNotFoundError, если игры с таким id нет."""
-        pass
 
     @abstractmethod
     async def get_available_games(self) -> list[Game]:
         """Игры, ожидающие второго игрока-человека (не vs computer)."""
-        pass
 
     @abstractmethod
     async def get_finished_games_by_user(self, user_id: UUID) -> list[Game]:
         """Завершённые (победа или ничья) игры, где пользователь был X или O."""
-        pass
 
     @abstractmethod
     async def get_top_players(self, n: int) -> list[PlayerRating]:
         """Топ-N игроков по доле побед (лучшие первыми). n < 1 даёт пустой список."""
-        pass
 
     @abstractmethod
     async def join_game(self, game_id: UUID, user_id: UUID) -> Game:
         """Кидает GameNotFoundError / GameNotJoinableError."""
-        pass
 
     @abstractmethod
     async def make_move(self, game_id: UUID, user_id: UUID, new_board: Board) -> Game:
@@ -54,4 +49,3 @@ class IGameService(ABC):
         компьютера — компьютер тоже ходит внутри этого же вызова, клиент
         получает уже финальный результат за один запрос.
         """
-        pass

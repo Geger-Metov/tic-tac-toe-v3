@@ -1,13 +1,14 @@
 from contextlib import asynccontextmanager
 from typing import Optional
+
 from fastapi import FastAPI
 from redis.asyncio import Redis
 
-from tic_tac_toe.web.route.game_route import router as game_router
-from tic_tac_toe.web.route.auth_route import router as auth_router
-from tic_tac_toe.web.route.user_route import router as user_router
-from tic_tac_toe.web.route.leaderboard_route import router as leaderboard_router
 from tic_tac_toe.di.container import Container
+from tic_tac_toe.web.route.auth_route import router as auth_router
+from tic_tac_toe.web.route.game_route import router as game_router
+from tic_tac_toe.web.route.leaderboard_route import router as leaderboard_router
+from tic_tac_toe.web.route.user_route import router as user_router
 
 # Схему БД теперь целиком создаёт/версионирует Alembic (см. migrations/ и
 # docker-entrypoint.sh, который гоняет "alembic upgrade head" перед стартом
@@ -22,15 +23,15 @@ async def lifespan(app: FastAPI):
     await app.state.container.close()
 
 
-def create_app(redis_client: Optional[Redis] = None) -> FastAPI:
+def create_app(redis_client: Redis | None = None) -> FastAPI:
     """redis_client нужен тестам (подсовывают in-memory фейк); в обычном
     запуске не передаётся — клиент создаётся по REDIS_URL."""
     app = FastAPI(
         title="Tic-Tac-Toe API",
         description="REST API для игры в крестики-нолики с алгоритмом Минимакс.",
         version="3.4.0",
-        docs_url="/docs",        # Интерактивная документация Swagger
-        redoc_url="/redoc",      # Альтернативная документация ReDoc
+        docs_url="/docs",  # Интерактивная документация Swagger
+        redoc_url="/redoc",  # Альтернативная документация ReDoc
         lifespan=lifespan,
     )
     # Создаём DI-контейнер и сохраняем в состоянии приложения
@@ -48,4 +49,5 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

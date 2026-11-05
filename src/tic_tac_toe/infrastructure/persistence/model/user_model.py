@@ -1,4 +1,5 @@
 from uuid import UUID, uuid4
+
 from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,5 +16,7 @@ class UserModel(Base):
     # unique=True — на уровне БД гарантирует уникальность логина даже при
     # гонке параллельных запросов регистрации (то, что не покрыть одной
     # только проверкой "такой login уже есть?" в сервисе перед сохранением).
-    login: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    login: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

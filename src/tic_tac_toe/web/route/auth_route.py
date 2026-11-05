@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,9 +12,20 @@ from tic_tac_toe.domain.exception.auth_exceptions import (
 from tic_tac_toe.domain.service.auth_interface import IAuthService
 from tic_tac_toe.domain.service.user_interface import IUserService
 from tic_tac_toe.infrastructure.database.session import get_db_session
-from tic_tac_toe.web.model.request_model import JwtRequest, RefreshJwtRequest, SignUpRequest
-from tic_tac_toe.web.model.response_model import JwtResponse, SignUpResponse, UserResponse
-from tic_tac_toe.web.security.user_authenticator import get_auth_service, get_current_user_id
+from tic_tac_toe.web.model.request_model import (
+    JwtRequest,
+    RefreshJwtRequest,
+    SignUpRequest,
+)
+from tic_tac_toe.web.model.response_model import (
+    JwtResponse,
+    SignUpResponse,
+    UserResponse,
+)
+from tic_tac_toe.web.security.user_authenticator import (
+    get_auth_service,
+    get_current_user_id,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -33,19 +45,30 @@ def _invalid_refresh() -> HTTPException:
     )
 
 
-@router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
-async def signup(request_data: SignUpRequest, service: IAuthService = Depends(get_auth_service)):
+@router.post(
+    "/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED
+)
+async def signup(
+    request_data: SignUpRequest, service: IAuthService = Depends(get_auth_service)
+):
     try:
         user = await service.register(request_data.login, request_data.password)
     except UserAlreadyExistsError:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User with this login already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this login already exists",
+        )
     return SignUpResponse(success=True, id=user.id)
 
 
 @router.post("/login", response_model=JwtResponse)
-async def login(request_data: JwtRequest, service: IAuthService = Depends(get_auth_service)):
+async def login(
+    request_data: JwtRequest, service: IAuthService = Depends(get_auth_service)
+):
     try:
-        access, refresh = await service.authenticate(request_data.login, request_data.password)
+        access, refresh = await service.authenticate(
+            request_data.login, request_data.password
+        )
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,7 +87,9 @@ async def login(request_data: JwtRequest, service: IAuthService = Depends(get_au
 # Оба refresh-эндпоинта открыты (без Bearer): клиент приходит сюда именно
 # потому, что accessToken уже протух.
 @router.post("/token/access", response_model=JwtResponse)
-async def refresh_access_token(request_data: RefreshJwtRequest, service: IAuthService = Depends(get_auth_service)):
+async def refresh_access_token(
+    request_data: RefreshJwtRequest, service: IAuthService = Depends(get_auth_service)
+):
     try:
         access, refresh = await service.refresh_access_token(request_data.refreshToken)
     except InvalidTokenError:
@@ -73,7 +98,9 @@ async def refresh_access_token(request_data: RefreshJwtRequest, service: IAuthSe
 
 
 @router.post("/token/refresh", response_model=JwtResponse)
-async def refresh_refresh_token(request_data: RefreshJwtRequest, service: IAuthService = Depends(get_auth_service)):
+async def refresh_refresh_token(
+    request_data: RefreshJwtRequest, service: IAuthService = Depends(get_auth_service)
+):
     try:
         access, refresh = await service.refresh_refresh_token(request_data.refreshToken)
     except InvalidTokenError:
@@ -89,5 +116,7 @@ async def me(
     """Информация о пользователе по accessToken."""
     user = await user_service.get_by_id(user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return UserResponse(id=user.id, login=user.login)
