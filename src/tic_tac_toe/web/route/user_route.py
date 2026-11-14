@@ -27,6 +27,10 @@ def get_user_service(
 async def get_user(
     user_id: UUID,
     service: IUserService = Depends(get_user_service),
+    # UserAuthenticator: сам факт запроса требует авторизации (ТЗ — "require
+    # authorization for all other endpoints"), но кого именно смотреть — решает
+    # user_id из пути, не текущий пользователь.
+    _current_user_id: UUID = Depends(get_current_user_id),
 ):
     user = await service.get_by_id(user_id)
     if user is None:

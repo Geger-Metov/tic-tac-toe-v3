@@ -6,6 +6,11 @@ from tic_tac_toe.web.model.response_model import LeaderboardEntryResponse
 from tic_tac_toe.web.route.game_route import get_game_service
 from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 
+# Авторизация навешана на весь роутер (UserAuthenticator), а не на отдельные
+# функции: рейтинг для всех одинаков, UUID запрашивающего эндпоинту не нужен,
+# и если держать защиту только в виде неиспользуемого параметра функции, её
+# легко потерять при правке — а так любой новый маршрут в этом роутере
+# защищён автоматически.
 router = APIRouter(
     prefix="/leaderboard",
     tags=["leaderboard"],

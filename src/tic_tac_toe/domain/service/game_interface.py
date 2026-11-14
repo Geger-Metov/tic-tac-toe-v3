@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from uuid import UUID
 
 from tic_tac_toe.domain.model.board import Board
@@ -36,6 +37,10 @@ class IGameService(ABC):
     @abstractmethod
     async def get_top_players(self, n: int) -> list[PlayerRating]:
         """Топ-N игроков по доле побед (лучшие первыми). n < 1 даёт пустой список."""
+
+    @abstractmethod
+    async def delete_abandoned_games(self, max_age: timedelta) -> int:
+        """Удаляет игры, ожидающие второго игрока дольше max_age; возвращает число удалённых."""
 
     @abstractmethod
     async def join_game(self, game_id: UUID, user_id: UUID) -> Game:

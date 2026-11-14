@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from fastapi import FastAPI
 from redis.asyncio import Redis
@@ -29,7 +28,7 @@ def create_app(redis_client: Redis | None = None) -> FastAPI:
     app = FastAPI(
         title="Tic-Tac-Toe API",
         description="REST API для игры в крестики-нолики с алгоритмом Минимакс.",
-        version="3.4.0",
+        version="3.5.0",
         docs_url="/docs",  # Интерактивная документация Swagger
         redoc_url="/redoc",  # Альтернативная документация ReDoc
         lifespan=lifespan,

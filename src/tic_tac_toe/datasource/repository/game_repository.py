@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Float, and_, cast, desc, func, or_, select, union_all
+from sqlalchemy import Float, and_, cast, delete, desc, func, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.datasource.mapper.domain_data_mapper import to_data, to_domain
@@ -115,3 +116,23 @@ class GameRepo:
             PlayerRating(user_id=user_id, login=login, wins=w, losses=l, draws=d)
             for user_id, login, w, l, d in result.all()
         ]
+
+    async def delete_abandoned_waiting(self, created_before: datetime) -> int:
+        """
+        Удаляет игры, которые ждут второго игрока и были созданы раньше
+        created_before; возвращает, сколько удалено. Игры в процессе и
+        завершённые не трогаются: подтвердить "брошенность" незавершённой игры
+        по одной дате создания нельзя (в ней могли ходить вчера), а у ожидающей
+        игры с тех пор вообще ничего не происходило.
+        """
+        result = await self._session.execute(
+            delete(GameModel)
+            .where(
+                GameModel.status == GameStatus.WAITING_FOR_PLAYER,
+                GameModel.created_at < created_before,
+            )
+            # Сессия короткоживущая и после удаления объекты не читает —
+            # синхронизировать с ней identity map не нужно.
+            .execution_options(synchronize_session=False)
+        )
+        return result.rowcount

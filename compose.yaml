@@ -11,7 +11,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql # Сохраняем данные в томе
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,13 +21,13 @@ services:
   redis:
     image: redis:8-alpine
     # AOF: сохранять записи на диск, чтобы refresh-токены переживали перезапуск
-    command: [ "redis-server", "--appendonly", "yes" ]
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "${REDIS_PORT:-6379}:6379" # Пробрасываем порт на хост-машину (для отладки и тестов)
     volumes:
       - redisdata:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -74,7 +74,72 @@ services:
         - action: rebuild
           path: ./docker-entrypoint.sh
 
+
+  # RabbitMQ: брокер сообщений для Celery.
+  # Версия закреплена на 4.2 намеренно: RabbitMQ 4.3 по умолчанию запрещает
+  # "временные неэксклюзивные очереди" (transient_nonexcl_queues), а служебные
+  # очереди Celery (удалённое управление, события) именно такие.
+  rabbitmq:
+    image: rabbitmq:4.2-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ttt}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ttt}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"                    # AMQP
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"       # веб-интерфейс управления
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # Воркер Celery: тот же образ, что и у app, но вместо ENTRYPOINT с
+  # миграциями и uvicorn запускается celery worker.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["celery", "-A", "tic_tac_toe.infrastructure.tasks.celery_app:celery_app", "worker", "--loglevel=info"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-ttt}:${RABBITMQ_PASSWORD:-ttt}@rabbitmq:5672//
+      ABANDONED_GAME_MAX_AGE_HOURS: ${ABANDONED_GAME_MAX_AGE_HOURS:-24}
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./src/tic_tac_toe
+          target: /app/tic_tac_toe
+
+  # Планировщик Celery (beat): раз в CLEANUP_INTERVAL_MINUTES кладёт задачу
+  # очистки в очередь. Отдельным сервисом и ровно в одном экземпляре: два beat
+  # ставили бы каждую задачу дважды.
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["celery", "-A", "tic_tac_toe.infrastructure.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    environment:
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-ttt}:${RABBITMQ_PASSWORD:-ttt}@rabbitmq:5672//
+      CLEANUP_INTERVAL_MINUTES: ${CLEANUP_INTERVAL_MINUTES:-60}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./src/tic_tac_toe
+          target: /app/tic_tac_toe
+
 # Определяем именованный том для хранения данных PostgreSQL
 volumes:
   pgdata:
   redisdata:
+  rabbitmqdata:

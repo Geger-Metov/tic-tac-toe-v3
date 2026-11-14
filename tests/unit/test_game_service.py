@@ -1,3 +1,5 @@
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -25,6 +27,7 @@ class FakeGameRepo:
         self.store = {}
         self.ratings = []  # то, что "вернёт БД" на find_top_players
         self.last_top_n = None
+        self.last_cutoff = None
 
     async def save(self, game) -> None:
         self.store[game.id] = game
@@ -39,10 +42,23 @@ class FakeGameRepo:
         self.last_top_n = n
         return self.ratings[:n]
 
+    async def delete_abandoned_waiting(self, created_before):
+        self.last_cutoff = created_before
+        doomed = [
+            gid
+            for gid, g in self.store.items()
+            if isinstance(g.state, WaitingForPlayer) and g.created_at < created_before
+        ]
+        for gid in doomed:
+            del self.store[gid]
+        return len(doomed)
+
     async def find_finished_by_user(self, user_id):
         finished = [
-            g for g in self.store.values()
-            if isinstance(g.state, (Win, Draw)) and user_id in (g.player_x_id, g.player_o_id)
+            g
+            for g in self.store.values()
+            if isinstance(g.state, (Win, Draw))
+            and user_id in (g.player_x_id, g.player_o_id)
         ]
         return sorted(finished, key=lambda g: g.created_at, reverse=True)
 
@@ -74,7 +90,9 @@ async def test_create_game_vs_computer_starts_immediately(service):
 async def test_available_games_lists_only_waiting(service):
     alice, bob = uuid4(), uuid4()
     waiting = await service.create_game(creator_id=alice, vs_computer=False)
-    await service.create_game(creator_id=bob, vs_computer=True)  # не должна попасть в список
+    await service.create_game(
+        creator_id=bob, vs_computer=True
+    )  # не должна попасть в список
 
     available = await service.get_available_games()
 
@@ -166,11 +184,21 @@ async def test_win_is_detected_and_ends_game(service):
     await service.join_game(game.id, bob)
 
     # X: (0,0),(0,1),(0,2) — победа по верхней строке; O ходит куда угодно между
-    await service.make_move(game.id, alice, Board(grid=[[1, 0, 0], [0, 0, 0], [0, 0, 0]]))
-    await service.make_move(game.id, bob, Board(grid=[[1, 0, 0], [0, -1, 0], [0, 0, 0]]))
-    await service.make_move(game.id, alice, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, 0]]))
-    await service.make_move(game.id, bob, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, -1]]))
-    final = await service.make_move(game.id, alice, Board(grid=[[1, 1, 1], [0, -1, 0], [0, 0, -1]]))
+    await service.make_move(
+        game.id, alice, Board(grid=[[1, 0, 0], [0, 0, 0], [0, 0, 0]])
+    )
+    await service.make_move(
+        game.id, bob, Board(grid=[[1, 0, 0], [0, -1, 0], [0, 0, 0]])
+    )
+    await service.make_move(
+        game.id, alice, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, 0]])
+    )
+    await service.make_move(
+        game.id, bob, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, -1]])
+    )
+    final = await service.make_move(
+        game.id, alice, Board(grid=[[1, 1, 1], [0, -1, 0], [0, 0, -1]])
+    )
 
     assert isinstance(final.state, Win)
     assert final.state.player_id == alice
@@ -251,11 +279,17 @@ async def test_finished_games_include_win_and_draw_for_both_players(service):
 
 async def test_finished_games_exclude_unfinished_and_foreign(service):
     alice, bob, carol, dave = uuid4(), uuid4(), uuid4(), uuid4()
-    finished = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
-    await new_human_game(service, alice, carol)                     # идёт, ходов нет
+    finished = await play_moves(
+        service, await new_human_game(service, alice, bob), X_WINS
+    )
+    await new_human_game(service, alice, carol)  # идёт, ходов нет
     await service.create_game(creator_id=alice, vs_computer=False)  # ждёт соперника
-    await service.create_game(creator_id=alice, vs_computer=True)   # идёт против компьютера
-    await play_moves(service, await new_human_game(service, carol, dave), X_WINS)  # чужая
+    await service.create_game(
+        creator_id=alice, vs_computer=True
+    )  # идёт против компьютера
+    await play_moves(
+        service, await new_human_game(service, carol, dave), X_WINS
+    )  # чужая
 
     history = await service.get_finished_games_by_user(alice)
 
@@ -266,7 +300,9 @@ async def test_finished_games_exclude_unfinished_and_foreign(service):
 async def test_finished_games_newest_first(service):
     alice, bob = uuid4(), uuid4()
     first = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
-    second = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
+    second = await play_moves(
+        service, await new_human_game(service, alice, bob), X_WINS
+    )
 
     history = await service.get_finished_games_by_user(alice)
 
@@ -277,8 +313,11 @@ async def test_finished_games_newest_first(service):
 # Сам SQL-запрос здесь не проверяется (фейковый репозиторий) — это делают
 # интеграционные тесты. Тут: расчёт коэффициента и поведение сервиса.
 
+
 def rating(wins, losses, draws, login="p"):
-    return PlayerRating(user_id=uuid4(), login=login, wins=wins, losses=losses, draws=draws)
+    return PlayerRating(
+        user_id=uuid4(), login=login, wins=wins, losses=losses, draws=draws
+    )
 
 
 def test_win_ratio_is_share_of_finished_games():
@@ -296,12 +335,20 @@ def test_win_ratio_without_games_is_zero():
 def test_win_ratio_ranks_like_wins_to_losses_and_draws():
     """Доля побед упорядочивает игроков так же, как буквальное отношение из ТЗ
     wins / (losses + draws), но определена и для непобеждённых игроков."""
-    players = [rating(5, 0, 0), rating(4, 1, 0), rating(2, 1, 1), rating(1, 3, 0), rating(0, 1, 0)]
+    players = [
+        rating(5, 0, 0),
+        rating(4, 1, 0),
+        rating(2, 1, 1),
+        rating(1, 3, 0),
+        rating(0, 1, 0),
+    ]
 
     by_share = sorted(players, key=lambda p: -p.win_ratio)
     by_literal = sorted(
         players,
-        key=lambda p: -(p.wins / (p.losses + p.draws) if p.losses + p.draws else float("inf")),
+        key=lambda p: (
+            -(p.wins / (p.losses + p.draws) if p.losses + p.draws else float("inf"))
+        ),
     )
 
     assert by_share == by_literal
@@ -322,3 +369,63 @@ async def test_top_players_with_non_positive_n_is_empty_and_skips_repo(service):
     assert await service.get_top_players(0) == []
     assert await service.get_top_players(-5) == []
     assert service._repo.last_top_n is None
+
+
+# ---- очистка брошенных игр ---------------------------------------------------
+# Сам SQL проверяют интеграционные тесты; здесь — логика сервиса и смысл правила.
+
+
+def age_game(service, game, age):
+    """Делает игру старше на age (подменяет created_at в фейковом хранилище)."""
+    service._repo.store[game.id] = replace(game, created_at=game.created_at - age)
+
+
+async def test_cleanup_deletes_only_old_games_waiting_for_a_player(service):
+    alice, bob, carol = uuid4(), uuid4(), uuid4()
+    old_waiting = await service.create_game(creator_id=alice, vs_computer=False)
+    fresh_waiting = await service.create_game(creator_id=alice, vs_computer=False)
+    old_in_progress = await new_human_game(service, alice, bob)
+    old_finished = await play_moves(
+        service, await new_human_game(service, alice, carol), X_WINS
+    )
+    old_vs_computer = await service.create_game(creator_id=alice, vs_computer=True)
+    for game in (old_waiting, old_in_progress, old_finished, old_vs_computer):
+        age_game(service, game, timedelta(days=2))
+
+    deleted = await service.delete_abandoned_games(timedelta(hours=24))
+
+    assert deleted == 1
+    remaining = set(service._repo.store)
+    assert old_waiting.id not in remaining
+    assert {
+        fresh_waiting.id,
+        old_in_progress.id,
+        old_finished.id,
+        old_vs_computer.id,
+    } <= remaining
+
+
+async def test_cleanup_with_nothing_abandoned_deletes_nothing(service):
+    await service.create_game(creator_id=uuid4(), vs_computer=False)
+
+    assert await service.delete_abandoned_games(timedelta(hours=24)) == 0
+
+
+async def test_cleanup_cutoff_is_relative_to_now(service):
+    before = datetime.now(timezone.utc)
+
+    await service.delete_abandoned_games(timedelta(hours=6))
+
+    after = datetime.now(timezone.utc)
+    cutoff = service._repo.last_cutoff
+    assert before - timedelta(hours=6) <= cutoff <= after - timedelta(hours=6)
+
+
+async def test_game_older_than_max_age_is_abandoned_but_a_younger_one_is_not(service):
+    waiting = await service.create_game(creator_id=uuid4(), vs_computer=False)
+    age_game(service, waiting, timedelta(hours=10))
+
+    assert (
+        await service.delete_abandoned_games(timedelta(hours=12)) == 0
+    )  # ещё не брошена
+    assert await service.delete_abandoned_games(timedelta(hours=8)) == 1  # уже брошена

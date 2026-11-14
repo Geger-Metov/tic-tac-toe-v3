@@ -20,7 +20,9 @@ from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 router = APIRouter(
     prefix="/game",
     tags=["game"],
-    dependencies=[Depends(get_current_user_id)],
+    dependencies=[
+        Depends(get_current_user_id)
+    ],  # все эндпоинты игры — только для авторизованных
 )
 
 
@@ -51,6 +53,10 @@ async def create_game(
 @router.get("/available", response_model=list[GameResponse])
 async def list_available_games(
     service: IGameService = Depends(get_game_service),
+    # UserAuthenticator: сам список не персонализирован, но эндпоинт всё равно
+    # закрыт — по ТЗ авторизация обязательна для всех эндпоинтов, кроме
+    # регистрации и логина.
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Игры, ожидающие второго игрока-человека (создатель ждёт присоединения)."""
     games = await service.get_available_games()
@@ -74,6 +80,7 @@ async def list_finished_games(
 async def get_game(
     game_id: UUID,
     service: IGameService = Depends(get_game_service),
+    user_id: UUID = Depends(get_current_user_id),
 ):
     try:
         game = await service.get_game_by_id(game_id)

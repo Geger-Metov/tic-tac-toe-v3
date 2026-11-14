@@ -3,11 +3,10 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
 
 # --- Находим пакет tic_tac_toe и добавляем его родительскую директорию в sys.path.
 #
@@ -29,7 +28,7 @@ for _candidate in (_project_root / "src", _project_root):
         break
 else:
     raise RuntimeError(
-        "He удалось найти пакет tic_tac_toe ни в <project_root>/src, ни в <project_root>"
+        "Не удалось найти пакет tic_tac_toe ни в <project_root>/src, ни в <project_root>"
     )
 
 # this is the Alembic Config object, which provides
@@ -45,10 +44,11 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 from tic_tac_toe.infrastructure.database.base import Base
 from tic_tac_toe.infrastructure.database.config import get_database_url
+
 # Импорт моделей обязателен: только так они регистрируются в Base.metadata,
 # и только тогда autogenerate вообще их увидит.
-from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel
-from tic_tac_toe.infrastructure.persistence.model.user_model import UserModel
+from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel  # noqa: F401
+from tic_tac_toe.infrastructure.persistence.model.user_model import UserModel  # noqa: F401
 
 target_metadata = Base.metadata
 
@@ -97,7 +97,6 @@ async def run_async_migrations() -> None:
     and associate a connection with the context.
 
     """
-
     configuration = config.get_section(config.config_ini_section, {})
     # Единая точка правды для URL БД — та же, что у приложения
     # (tic_tac_toe.infrastructure.database.config, переменная DATABASE_URL).

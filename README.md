@@ -52,13 +52,13 @@ uv run alembic history
 
 Basic-авторизация убрана, используется Bearer-токен (`Authorization: Bearer <accessToken>`).
 
-| Эндпоинт | Доступ | Описание |
-| --- | --- | --- |
-| `POST /auth/signup` | открыт | регистрация `{login, password}` |
-| `POST /auth/login` | открыт | `{login, password}` → `{type, accessToken, refreshToken}` |
-| `POST /auth/token/access` | открыт | `{refreshToken}` → новая пара токенов (обновление accessToken) |
+| Эндпоинт                   | Доступ | Описание                                                        |
+| -------------------------- | ------ | --------------------------------------------------------------- |
+| `POST /auth/signup`        | открыт | регистрация `{login, password}`                                 |
+| `POST /auth/login`         | открыт | `{login, password}` → `{type, accessToken, refreshToken}`       |
+| `POST /auth/token/access`  | открыт | `{refreshToken}` → новая пара токенов (обновление accessToken)  |
 | `POST /auth/token/refresh` | открыт | `{refreshToken}` → новая пара токенов (обновление refreshToken) |
-| `GET /auth/me` | Bearer | информация о пользователе по accessToken |
+| `GET /auth/me`             | Bearer | информация о пользователе по accessToken                        |
 
 refreshToken одноразовый и хранится в **Redis**: ключ `refresh_token:<jti>` → UUID пользователя
 с TTL, равным сроку жизни токена. При обновлении токен «захватывается» командой `GETDEL`
@@ -82,6 +82,8 @@ refreshToken одноразовый и хранится в **Redis**: ключ `
 ## Redis
 
 Поднимается сервисом `redis` из `compose.yaml` (образ `redis:8-alpine`, AOF включён, том `redisdata`).
+Приложение использует только базовые команды (`SET EX`, `GET`, `GETDEL`, `INCR`, `TTL`, `EXPIRE`, `DEL`),
+поэтому работает и на Redis 7 (`GETDEL` нужен 6.2+).
 В Docker приложение берёт `REDIS_URL` из compose; локально — `REDIS_HOST`/`REDIS_PORT`
 (по умолчанию `localhost:6379`, порт проброшен на хост).
 
@@ -131,9 +133,19 @@ docker compose up -d db redis   # для локального запуска и 
 - Эндпоинта удаления пользователя нет, поэтому существование пользователя при проверке
   accessToken не перепроверяется.
 
+**Фоновые задачи**
+
+- Чистятся только игры в ожидании соперника: «брошенность» игры в процессе по одной дате создания
+  не определить (в ней могли ходить вчера) — для этого понадобилось бы поле `updated_at`.
+- Один воркер и один beat; задачи не наблюдаемы (результаты не хранятся, мониторинга вроде Flower нет).
+- После исчерпания повторов задача просто падает с ошибкой в логе воркера: очереди «мёртвых» сообщений (DLQ)
+  и оповещений нет. Для очистки это безопасно: следующий запуск по расписанию повторит попытку.
+- Celery синхронный, а слой БД асинхронный, поэтому задача запускает `asyncio.run()` и создаёт свой
+  engine без пула; нативно асинхронные аналоги (arq, taskiq) подошли бы проекту естественнее.
+
 **История игр**
 
-- Сортировка идёт по дате создания, а не завершения (поля `finished_at` нет).
+- Сортировка идёт по дате создания, а не завершения (поля `finished_at` нет — ТЗ просит только дату создания).
 - Нет пагинации: возвращается вся история.
 - Нет индексов по `player_x_id` / `player_o_id`.
 - Клиент сам определяет, выиграл ли он: сравнивает `state.player_id` со своим UUID.
@@ -151,6 +163,37 @@ docker compose up -d db redis   # для локального запуска и 
 
 - `test_finished_games_newest_first` рассчитывает на то, что две подряд созданные игры получат разные
   `created_at`; на системах с грубым разрешением часов (около 15 мс) он теоретически может мигать.
+
+## Фоновые задачи (Celery + RabbitMQ)
+
+Игра, созданная «с человеком», ждёт соперника в `/game/available`. Если никто не присоединился,
+она остаётся там навсегда. Периодическая задача Celery `games.cleanup_abandoned` удаляет такие игры:
+`WAITING_FOR_PLAYER` старше `ABANDONED_GAME_MAX_AGE_HOURS` (24 ч). Запускает её **beat** раз в
+`CLEANUP_INTERVAL_MINUTES` (60 мин), выполняет **worker**; брокер сообщений — **RabbitMQ**.
+
+```
+beat ──(расписание)──► RabbitMQ ◄──(берёт задачу)── worker ──► Postgres (DELETE)
+```
+
+В Docker всё поднимается вместе (`docker compose up`: сервисы `rabbitmq`, `worker`, `beat`).
+Веб-интерфейс RabbitMQ: http://localhost:15672 (логин и пароль из `RABBITMQ_USER` / `RABBITMQ_PASSWORD`).
+
+Локально (БД и RabbitMQ в compose, процессы на хосте):
+
+```bash
+docker compose up -d db rabbitmq
+PYTHONPATH=src uv run celery -A tic_tac_toe.infrastructure.tasks.celery_app:celery_app worker -l info
+PYTHONPATH=src uv run celery -A tic_tac_toe.infrastructure.tasks.celery_app:celery_app beat -l info   # в другом терминале
+# запустить очистку вручную, не дожидаясь расписания:
+PYTHONPATH=src uv run celery -A tic_tac_toe.infrastructure.tasks.celery_app:celery_app call games.cleanup_abandoned
+```
+
+Особенности: задача идемпотентна (повторный запуск ничего не ломает), потому что воркер подтверждает
+её брокеру только после выполнения (`acks_late`) и после сбоя она может прийти повторно; сбои БД
+переживаются повторами с растущей паузой (до 3 раз). Результаты задач не сохраняются (backend не нужен).
+Версия RabbitMQ закреплена на 4.2: с 4.3 «временные неэксклюзивные очереди», которые Celery создаёт
+для удалённого управления, запрещены по умолчанию (при обновлении смотри логи воркера и документацию
+RabbitMQ про `deprecated_features`).
 
 ## Тесты
 

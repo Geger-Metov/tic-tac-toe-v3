@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from tic_tac_toe.datasource.repository.game_repository import GameRepo
@@ -45,6 +46,10 @@ class GameService(IGameService):
         if n < 1:
             return []
         return await self._repo.find_top_players(n)
+
+    async def delete_abandoned_games(self, max_age: timedelta) -> int:
+        cutoff = datetime.now(UTC) - max_age
+        return await self._repo.delete_abandoned_waiting(cutoff)
 
     async def join_game(self, game_id: UUID, user_id: UUID) -> Game:
         game = await self.get_game_by_id(game_id)

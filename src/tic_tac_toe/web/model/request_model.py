@@ -38,6 +38,8 @@ class SignUpRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=255)
 
 
+# Поля ниже намеренно в camelCase — так они названы в ТЗ (accessToken /
+# refreshToken), это часть внешнего контракта API, а не питоновский стиль.
 class JwtRequest(BaseModel):
     login: str = Field(..., max_length=255)
     password: str = Field(..., max_length=255)
