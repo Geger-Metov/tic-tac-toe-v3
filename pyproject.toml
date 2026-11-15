@@ -3,7 +3,7 @@ name = "tic-tac-toe-v3"
 version = "0.5.0"
 description = "Tic-Tac-Toe REST API (FastAPI + SQLAlchemy + PostgreSQL) с Minimax и Basic Auth"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.15"
 dependencies = [
     "fastapi>=0.141.1",
     "uvicorn>=0.52.4",
