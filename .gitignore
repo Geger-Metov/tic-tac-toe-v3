@@ -15,6 +15,11 @@ venv/
 .env.*
 !.env.example
 
+# frontend
+node_modules/
+frontend/dist/
+
 # my own temp files
 TASKS/
 TODO.md
+tmp/

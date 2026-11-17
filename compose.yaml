@@ -35,7 +35,7 @@ services:
   # Сервис с FastAPI-приложением
   app:
     build:
-      context: . # Собираем образ из Dockerfile в текущей директории
+      context: ./backend # Dockerfile бэкенда лежит в backend/
       dockerfile: Dockerfile
     ports:
       - "${APP_PORT}:8000"
@@ -55,25 +55,35 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./src/tic_tac_toe
+          path: ./backend/src/tic_tac_toe
           target: /app/tic_tac_toe
 
         - action: sync+restart
-          path: ./migrations
+          path: ./backend/migrations
           target: /app/migrations
 
         - action: rebuild
-          path: ./pyproject.toml
+          path: ./backend/pyproject.toml
 
         - action: rebuild
-          path: ./uv.lock
+          path: ./backend/uv.lock
 
         - action: rebuild
-          path: ./alembic.ini
+          path: ./backend/alembic.ini
 
         - action: rebuild
-          path: ./docker-entrypoint.sh
+          path: ./backend/docker-entrypoint.sh
 
+
+  # Фронтенд: nginx раздаёт собранный React-клиент и проксирует /api на app
+  # (так браузер видит один origin, и CORS не нужен). Открывать: http://localhost:${FRONTEND_PORT}
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - app
 
   # RabbitMQ: брокер сообщений для Celery.
   # Версия закреплена на 4.2 намеренно: RabbitMQ 4.3 по умолчанию запрещает
@@ -100,7 +110,7 @@ services:
   # миграциями и uvicorn запускается celery worker.
   worker:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     entrypoint: ["celery", "-A", "tic_tac_toe.infrastructure.tasks.celery_app:celery_app", "worker", "--loglevel=info"]
     environment:
@@ -115,7 +125,7 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./src/tic_tac_toe
+          path: ./backend/src/tic_tac_toe
           target: /app/tic_tac_toe
 
   # Планировщик Celery (beat): раз в CLEANUP_INTERVAL_MINUTES кладёт задачу
@@ -123,7 +133,7 @@ services:
   # ставили бы каждую задачу дважды.
   beat:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     entrypoint: ["celery", "-A", "tic_tac_toe.infrastructure.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
     environment:
@@ -135,7 +145,7 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./src/tic_tac_toe
+          path: ./backend/src/tic_tac_toe
           target: /app/tic_tac_toe
 
 # Определяем именованный том для хранения данных PostgreSQL
