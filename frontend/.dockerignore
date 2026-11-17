@@ -3,3 +3,10 @@ dist
 .vite
 .git
 *.local
+
+.dockerignore
+*.tsbuildinfo
+e2e
+playwright-report
+test-results
+playwright.config.ts

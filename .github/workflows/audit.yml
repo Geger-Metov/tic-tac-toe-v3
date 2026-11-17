@@ -1,0 +1,52 @@
+# Проверка зависимостей на известные уязвимости. Вынесена из основного CI: список уязвимостей
+# меняется сам по себе, и обычный push не должен краснеть из-за чужой новой уязвимости.
+# Запускается раз в неделю, вручную и при изменении lock-файлов.
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # понедельник, 03:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - backend/uv.lock
+      - backend/pyproject.toml
+      - frontend/pnpm-lock.yaml
+      - frontend/package.json
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      # --no-dev: проверяем только то, что попадает на сервер (без pytest, ruff, mypy)
+      # --locked: упасть, если uv.lock не соответствует pyproject.toml
+      # uv audit пока в preview: предупреждение «experimental» в логе ожидаемо
+      - name: Audit (uv)
+        run: uv audit --locked --no-dev
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      # Версии берутся из pnpm-lock.yaml, устанавливать зависимости не нужно
+      - name: Audit (pnpm)
+        run: pnpm audit --audit-level=high --prod

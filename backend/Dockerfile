@@ -1,31 +1,37 @@
-FROM python:3.15-slim
+FROM python:3.15-slim AS build
 
-# Копируем бинарник uv из официального distroless-образа Astral
-COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /bin/
-
-WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/app/.venv
 
-# Зависимости ставим отдельным слоем, до копирования кода приложения —
-# слой пересобирается только когда меняются pyproject.toml/uv.lock,
-# а не при каждой правке src/.
-COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev
+WORKDIR /app
 
-COPY src/tic_tac_toe ./tic_tac_toe/
-COPY alembic.ini ./
-COPY migrations ./migrations/
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
+# Зависимости: слой пересобирается только при смене pyproject.toml / uv.lock.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    uv sync --locked --no-dev
 
-# Кладём venv/bin в PATH, чтобы не писать "uv run" перед каждой командой
+
+FROM python:3.15-slim
+
+# Тот же базовый образ, что и в build: venv ссылается на его интерпретатор.
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-EXPOSE 8000
+RUN useradd --system --no-create-home app
+WORKDIR /app
 
+COPY --from=build /app/.venv ./.venv
+COPY src/tic_tac_toe ./tic_tac_toe/
+COPY alembic.ini ./
+COPY migrations ./migrations/
+COPY --chmod=755 docker-entrypoint.sh ./
+
+USER app
+EXPOSE 8000
 ENTRYPOINT ["./docker-entrypoint.sh"]
