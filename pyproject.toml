@@ -1,7 +1,7 @@
 [project]
 name = "tic-tac-toe-v3"
 version = "0.5.0"
-description = "Tic-Tac-Toe REST API (FastAPI + SQLAlchemy + PostgreSQL) с Minimax и Basic Auth"
+description = "Tic-Tac-Toe REST API (FastAPI + SQLAlchemy + PostgreSQL) с Minimax и JWT-аутентификацией"
 readme = "README.md"
 requires-python = ">=3.15"
 dependencies = [
@@ -9,7 +9,7 @@ dependencies = [
     "uvicorn>=0.52.4",
     "sqlalchemy[asyncio]>=2.0.52",
     "asyncpg>=0.31.0",
-    "bcrypt>=4.2.0",
+    "argon2-cffi>=23.1.0",
     "alembic>=1.13.0",
     "python-dotenv>=1.0.0",
     "pyjwt>=2.9.0",

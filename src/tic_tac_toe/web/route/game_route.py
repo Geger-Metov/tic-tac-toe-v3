@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.exception.game_exceptions import (
     GameNotFoundError,
@@ -11,7 +10,7 @@ from tic_tac_toe.domain.exception.game_exceptions import (
     NotParticipantError,
 )
 from tic_tac_toe.domain.service.game_interface import IGameService
-from tic_tac_toe.infrastructure.database.session import get_db_session
+from tic_tac_toe.infrastructure.database.session import DbSession
 from tic_tac_toe.web.mapper.domain_web_mapper import GameWebMapper
 from tic_tac_toe.web.model.request_model import CreateGameRequest, MoveRequest
 from tic_tac_toe.web.model.response_model import GameResponse
@@ -28,7 +27,7 @@ router = APIRouter(
 
 def get_game_service(
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: DbSession,
 ) -> IGameService:
     container = request.app.state.container
     return container.get_game_service(session)

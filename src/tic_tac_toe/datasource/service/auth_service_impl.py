@@ -34,12 +34,14 @@ class AuthService(IAuthService):
     async def authenticate(self, login: str, password: str) -> tuple[str, str]:
         # Попытка засчитывается СРАЗУ и атомарно, до проверки пароля — иначе
         # параллельные запросы обходят лимит (подробности в LoginRateLimiter).
-        # У заблокированного логина пароль не проверяется вообще (bcrypt зря
+        # У заблокированного логина пароль не проверяется вообще (хеширование зря
         # не считается). Считаются и несуществующие логины.
         await self._login_limiter.begin_attempt(login)
 
         user = await self._user_service.get_by_login(login)
-        if user is None or not self._user_service.verify_password(user, password):
+        # verify_password вызывается и при user=None (проверка против пустышки),
+        # чтобы по времени ответа нельзя было узнать, существует ли логин.
+        if not await self._user_service.verify_password(user, password):
             # Попытка уже засчитана — отдельно "записывать неудачу" не нужно.
             raise InvalidCredentialsError()
 

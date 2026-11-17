@@ -1,10 +1,9 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.service.user_interface import IUserService
-from tic_tac_toe.infrastructure.database.session import get_db_session
+from tic_tac_toe.infrastructure.database.session import DbSession
 from tic_tac_toe.web.model.response_model import UserResponse
 from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 
@@ -17,7 +16,7 @@ router = APIRouter(
 
 def get_user_service(
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: DbSession,
 ) -> IUserService:
     container = request.app.state.container
     return container.get_user_service(session)

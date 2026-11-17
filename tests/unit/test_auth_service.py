@@ -4,16 +4,16 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
-from tic_tac_toe.datasource.service.auth_service_impl import AuthService
-from tic_tac_toe.datasource.service.jwt_provider_impl import JwtProvider
-from tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
-from tic_tac_toe.domain.exception.auth_exceptions import (
+from src.tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
+from src.tic_tac_toe.datasource.service.auth_service_impl import AuthService
+from src.tic_tac_toe.datasource.service.jwt_provider_impl import JwtProvider
+from src.tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
+from src.tic_tac_toe.domain.exception.auth_exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
     TooManyLoginAttemptsError,
 )
-from tic_tac_toe.domain.model.user import User
+from src.tic_tac_toe.domain.model.user import User
 
 REFRESH_EXPIRES = timedelta(days=30)
 
@@ -23,7 +23,9 @@ class FakeUserService:
         self.users = {}
 
     def add(self, login, password):
-        user = User(id=uuid4(), login=login, password_hash=password)  # "хэш" = сам пароль, для теста
+        user = User(
+            id=uuid4(), login=login, password_hash=password
+        )  # "хэш" = сам пароль, для теста
         self.users[user.id] = user
         return user
 
@@ -36,8 +38,8 @@ class FakeUserService:
     async def get_by_id(self, id):
         return self.users.get(id)
 
-    def verify_password(self, user, password):
-        return user.password_hash == password
+    async def verify_password(self, user, password):
+        return user is not None and user.password_hash == password
 
 
 def make_provider(access=timedelta(minutes=15), refresh=REFRESH_EXPIRES):
@@ -71,6 +73,7 @@ async def fail_login(service, login, times, password="wrong-password"):
 
 
 # ---- токены ----------------------------------------------------------------
+
 
 async def test_authenticate_returns_working_pair(service, users):
     user = users.add("alice", "secret123")
@@ -129,7 +132,9 @@ async def test_unknown_refresh_token_rejected(users, fake_redis):
 
 
 async def test_expired_access_token_rejected(users, fake_redis):
-    service = build_service(users, fake_redis, make_provider(access=timedelta(seconds=-1)))
+    service = build_service(
+        users, fake_redis, make_provider(access=timedelta(seconds=-1))
+    )
     users.add("alice", "secret123")
 
     access, _ = await service.authenticate("alice", "secret123")
@@ -140,7 +145,11 @@ async def test_expired_access_token_rejected(users, fake_redis):
 
 async def test_token_signed_with_other_secret_rejected(service, users):
     users.add("alice", "secret123")
-    other = JwtProvider("another-unit-test-secret-9876543210-fedcba", timedelta(minutes=15), REFRESH_EXPIRES)
+    other = JwtProvider(
+        "another-unit-test-secret-9876543210-fedcba",
+        timedelta(minutes=15),
+        REFRESH_EXPIRES,
+    )
     forged = other.generate_access_token(next(iter(users.users.values())))
 
     with pytest.raises(InvalidTokenError):
@@ -149,11 +158,14 @@ async def test_token_signed_with_other_secret_rejected(service, users):
 
 # ---- refresh-токены в Redis ------------------------------------------------
 
+
 def refresh_key(token):
     return f"refresh_token:{UUID(make_provider().get_jti(token))}"
 
 
-async def test_refresh_token_is_stored_with_ttl_of_its_lifetime(service, users, fake_redis):
+async def test_refresh_token_is_stored_with_ttl_of_its_lifetime(
+    service, users, fake_redis
+):
     users.add("alice", "secret123")
 
     _, refresh = await service.authenticate("alice", "secret123")
@@ -186,7 +198,10 @@ async def test_refresh_rejected_after_store_ttl_expires(service, users, fake_red
 
 # ---- защита логина от перебора --------------------------------------------
 
-async def test_login_locks_after_max_failures_even_with_correct_password(service, users):
+
+async def test_login_locks_after_max_failures_even_with_correct_password(
+    service, users
+):
     users.add("alice", "secret123")
     await fail_login(service, "alice", 5)
 
@@ -274,6 +289,7 @@ async def test_blocked_attempts_do_not_extend_the_lock(service, users, fake_redi
 
 # ---- гонка: параллельные попытки не обходят лимит ----------------------------
 
+
 class InterleavingUserService(FakeUserService):
     """Отдаёт управление при поиске пользователя, чтобы параллельные запросы
     гарантированно перемешались, и считает реальные проверки пароля."""
@@ -286,9 +302,12 @@ class InterleavingUserService(FakeUserService):
         await asyncio.sleep(0)
         return await super().get_by_login(login)
 
-    def verify_password(self, user, password):
-        self.password_checks += 1
-        return super().verify_password(user, password)
+    async def verify_password(self, user, password):
+        # Считаем только проверки реального пользователя (как и раньше):
+        # проверка против пустышки при user=None не должна попадать в счётчик.
+        if user is not None:
+            self.password_checks += 1
+        return await super().verify_password(user, password)
 
 
 async def test_concurrent_attempts_cannot_exceed_the_limit(fake_redis):

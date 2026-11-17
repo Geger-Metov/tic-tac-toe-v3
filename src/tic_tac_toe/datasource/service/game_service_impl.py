@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from uuid import UUID
 
 from tic_tac_toe.datasource.repository.game_repository import GameRepo
@@ -16,9 +17,58 @@ from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.domain.service.game_interface import IGameService
 
 
+_WIN_SCORE = 10
+_DRAW_SCORE = 0
+
+# Клетки доски в плоском кортеже (индекс = строка * 3 + столбец) и все 8 линий.
+_LINES = (
+    (0, 1, 2), (3, 4, 5), (6, 7, 8),
+    (0, 3, 6), (1, 4, 7), (2, 5, 8),
+    (0, 4, 8), (2, 4, 6),
+)
+
+
+def _winner(cells: tuple[int, ...]) -> int:
+    for a, b, c in _LINES:
+        if cells[a] != 0 and cells[a] == cells[b] == cells[c]:
+            return cells[a]
+    return 0
+
+
+@lru_cache(maxsize=None)
+def _minimax_cached(cells: tuple[int, ...], depth: int, is_maximizing: bool) -> int:
+    """
+    Минимакс с мемоизацией по (позиция, глубина, чей ход). Всего позиций
+    3^9 = 19683, поэтому кэш ограничен сверху и после первых партий ответ
+    считается за микросекунды (без кэша первый ответ — около 60 тысяч узлов,
+    ~180 мс, и всё это блокировало event loop). Результаты те же, что у
+    наивного перебора: глубина входит в ключ, значит предпочтение быстрых побед
+    сохраняется.
+    """
+    winner = _winner(cells)
+    if winner == O_SYMBOL:
+        return _WIN_SCORE - depth
+    if winner == X_SYMBOL:
+        return -_WIN_SCORE + depth
+    if 0 not in cells:
+        return _DRAW_SCORE
+
+    symbol = O_SYMBOL if is_maximizing else X_SYMBOL
+    scores = (
+        _minimax_cached(cells[:i] + (symbol,) + cells[i + 1 :], depth + 1, not is_maximizing)
+        for i, cell in enumerate(cells)
+        if cell == 0
+    )
+    return max(scores) if is_maximizing else min(scores)
+
+
+def _flatten(board: Board) -> tuple[int, ...]:
+    return tuple(cell for row in board.grid for cell in row)
+
+
 class GameService(IGameService):
-    WIN_SCORE = 10
-    DRAW_SCORE = 0
+    WIN_SCORE = _WIN_SCORE
+    DRAW_SCORE = _DRAW_SCORE
 
     def __init__(self, repo: GameRepo) -> None:
         self._repo = repo
@@ -51,8 +101,15 @@ class GameService(IGameService):
         cutoff = datetime.now(UTC) - max_age
         return await self._repo.delete_abandoned_waiting(cutoff)
 
+    async def _get_game_for_update(self, id: UUID) -> Game:
+        game = await self._repo.find_by_id_for_update(id)
+        if game is None:
+            raise GameNotFoundError(f"Game with id {id} not found")
+        return game
+
     async def join_game(self, game_id: UUID, user_id: UUID) -> Game:
-        game = await self.get_game_by_id(game_id)
+        # Блокировка строки: два одновременных join не должны оба «успеть».
+        game = await self._get_game_for_update(game_id)
 
         if game.player_o_id is not None:
             raise GameNotJoinableError("Game is not waiting for a player")
@@ -72,7 +129,10 @@ class GameService(IGameService):
         return joined_game
 
     async def make_move(self, game_id: UUID, user_id: UUID, new_board: Board) -> Game:
-        game = await self.get_game_by_id(game_id)
+        # Блокировка строки на всё время хода (вместе с ответом компьютера):
+        # иначе два запроса с одной и той же доской (двойной клик) оба проходят
+        # проверку, и второй затирает ход первого.
+        game = await self._get_game_for_update(game_id)
 
         if not game.is_participant(user_id):
             raise NotParticipantError()
@@ -172,39 +232,12 @@ class GameService(IGameService):
     def _minimax(self, board: Board, depth: int, is_maximizing: bool) -> int:
         """
         :param board: текущая доска
-        :param depth: глубина рекурсии (необязательно, но полезно для предпочтения быстрых побед)
+        :param depth: глубина рекурсии (предпочтение быстрых побед)
         :param is_maximizing: True, если ход компьютера (максимизирующего игрока),
                               False, если ход человека (минимизирующего)
         :return: оценка позиции (с точки зрения компьютера)
         """
-        winner = self._check_winner(board)
-        if winner == O_SYMBOL:
-            return self.WIN_SCORE - depth
-        elif winner == X_SYMBOL:
-            return -self.WIN_SCORE + depth
-        elif not board.has_empty_cells():
-            return self.DRAW_SCORE
-
-        if is_maximizing:
-            best = float("-inf")
-            for i in range(3):
-                for j in range(3):
-                    if board.get_cell(i, j) == 0:
-                        candidate = self._copy_board(board)
-                        candidate.grid[i][j] = O_SYMBOL
-                        score = self._minimax(candidate, depth + 1, False)
-                        best = max(best, score)
-            return int(best)
-        else:
-            best = float("inf")
-            for i in range(3):
-                for j in range(3):
-                    if board.get_cell(i, j) == 0:
-                        candidate = self._copy_board(board)
-                        candidate.grid[i][j] = X_SYMBOL
-                        score = self._minimax(candidate, depth + 1, True)
-                        best = min(best, score)
-            return int(best)
+        return _minimax_cached(_flatten(board), depth, is_maximizing)
 
     def _copy_board(self, board: Board) -> Board:
         new_grid = [row[:] for row in board.grid]

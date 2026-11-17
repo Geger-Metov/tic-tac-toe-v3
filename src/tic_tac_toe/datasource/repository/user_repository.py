@@ -14,6 +14,9 @@ class UserRepo:
 
     async def save(self, user: DomainUser) -> None:
         await self._session.merge(to_data(user))
+        # flush сразу: нарушение уникальности логина должно всплыть здесь
+        # (IntegrityError ловит UserService), а не при коммите после ответа.
+        await self._session.flush()
 
     async def find_by_login(self, login: str) -> DomainUser | None:
         stmt = select(UserModel).where(UserModel.login == login)

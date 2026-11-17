@@ -35,6 +35,9 @@ class FakeGameRepo:
     async def find_by_id(self, uid):
         return self.store.get(uid)
 
+    async def find_by_id_for_update(self, uid):
+        return self.store.get(uid)
+
     async def find_waiting_games(self):
         return [g for g in self.store.values() if isinstance(g.state, WaitingForPlayer)]
 

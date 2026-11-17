@@ -1,4 +1,7 @@
 from collections.abc import AsyncGenerator
+from typing import Annotated
+
+from fastapi import Depends
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -32,3 +35,12 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+# scope="function": код после yield (commit/rollback) выполняется сразу после
+# обработчика, ДО отправки ответа. По умолчанию (scope="request") он идёт
+# после отправки: клиент получал 2xx до коммита (последующий GET мог увидеть
+# старое состояние), а ошибка коммита уже не могла стать ответом об ошибке.
+# Во всех маршрутах и зависимостях брать сессию через этот алиас, а не через
+# голый Depends(get_db_session).
+DbSession = Annotated[AsyncSession, Depends(get_db_session, scope="function")]

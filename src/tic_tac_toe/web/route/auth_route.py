@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.exception.auth_exceptions import (
     InvalidCredentialsError,
@@ -11,7 +10,7 @@ from tic_tac_toe.domain.exception.auth_exceptions import (
 )
 from tic_tac_toe.domain.service.auth_interface import IAuthService
 from tic_tac_toe.domain.service.user_interface import IUserService
-from tic_tac_toe.infrastructure.database.session import get_db_session
+from tic_tac_toe.infrastructure.database.session import DbSession
 from tic_tac_toe.web.model.request_model import (
     JwtRequest,
     RefreshJwtRequest,
@@ -32,7 +31,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _get_user_service(
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: DbSession,
 ) -> IUserService:
     return request.app.state.container.get_user_service(session)
 

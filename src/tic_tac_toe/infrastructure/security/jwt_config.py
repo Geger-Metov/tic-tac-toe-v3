@@ -20,6 +20,13 @@ def get_jwt_secret_key() -> str:
             "JWT_SECRET_KEY is not set. Add it to your .env "
             "(see .env.example) — without it JWT signing is unsafe."
         )
+    # Известное значение из .env.example и короткие секреты позволяют подделать
+    # любой токен — отказываемся стартовать, а не работаем молча небезопасно.
+    if secret.startswith("change-me") or len(secret.encode()) < 32:
+        raise RuntimeError(
+            "JWT_SECRET_KEY is a placeholder or shorter than 32 bytes. "
+            "Generate one: openssl rand -hex 32"
+        )
     return secret
 
 

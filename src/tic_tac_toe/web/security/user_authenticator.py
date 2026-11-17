@@ -1,18 +1,17 @@
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.domain.exception.auth_exceptions import InvalidTokenError
 from tic_tac_toe.domain.service.auth_interface import IAuthService
-from tic_tac_toe.infrastructure.database.session import get_db_session
+from tic_tac_toe.infrastructure.database.session import DbSession
 
 _BEARER_PREFIX = "Bearer "
 
 
 def get_auth_service(
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: DbSession,
 ) -> IAuthService:
     container = request.app.state.container
     return container.get_auth_service(session)

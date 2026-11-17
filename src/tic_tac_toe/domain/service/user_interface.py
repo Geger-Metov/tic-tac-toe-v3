@@ -18,5 +18,8 @@ class IUserService(ABC):
         pass
 
     @abstractmethod
-    def verify_password(self, user: User, password: str) -> bool:
-        """Чистая проверка хэша, БД не трогает — остаётся синхронной."""
+    async def verify_password(self, user: User | None, password: str) -> bool:
+        """Проверка хэша (БД не трогает, но считается в отдельном потоке).
+        user=None — логина нет: проверка всё равно выполняется (против
+        хеша-пустышки) и возвращает False, чтобы не выдавать существование логина
+        по времени ответа."""

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Копируем бинарник uv из официального distroless-образа Astral
 COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /bin/

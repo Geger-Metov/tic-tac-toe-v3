@@ -31,6 +31,18 @@ class GameRepo:
 
         return to_domain(data_model)
 
+    async def find_by_id_for_update(self, uuid: UUID) -> DomainGame | None:
+        """
+        То же, что find_by_id, но берёт блокировку строки (SELECT ... FOR
+        UPDATE) до конца транзакции. Параллельный запрос к той же игре ждёт
+        здесь, а потом видит уже обновлённое состояние — так двойной клик или
+        два одновременных join не затирают друг друга (lost update).
+        """
+        stmt = select(GameModel).where(GameModel.id == uuid).with_for_update()
+        result = await self._session.execute(stmt)
+        data_model = result.scalar_one_or_none()
+        return to_domain(data_model) if data_model is not None else None
+
     async def find_waiting_games(self) -> list[DomainGame]:
         stmt = select(GameModel).where(
             GameModel.status == GameStatus.WAITING_FOR_PLAYER
