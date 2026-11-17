@@ -1,8 +1,9 @@
 import asyncio
 from uuid import UUID, uuid4
 
-from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerificationError
+from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
+from pwdlib.hashers.argon2 import Argon2Hasher
 from sqlalchemy.exc import IntegrityError
 
 from tic_tac_toe.datasource.repository.user_repository import UserRepo
@@ -10,11 +11,11 @@ from tic_tac_toe.domain.exception.auth_exceptions import UserAlreadyExistsError
 from tic_tac_toe.domain.model.user import User
 from tic_tac_toe.domain.service.user_interface import IUserService
 
-# argon2id с параметрами из минимальной рекомендации OWASP (19 МиБ памяти,
-# 2 прохода, 1 поток). Значения по умолчанию argon2-cffi (64 МиБ, 4 потока)
-# тяжелее: при параллельных входах контейнер быстро упирается в память.
+# argon2id (через pwdlib) с параметрами из минимальной рекомендации OWASP
+# (19 МиБ памяти, 2 прохода, 1 поток). Значения по умолчанию
+# (PasswordHash.recommended(): 64 МиБ, 4 потока) тяжелее: при параллельных входах контейнер быстро упирается в память.
 # У argon2 нет лимита в 72 байта, как у bcrypt.
-_hasher = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
+_hasher = PasswordHash((Argon2Hasher(time_cost=2, memory_cost=19456, parallelism=1),))
 
 # Хеш-«пустышка»: когда логина нет в БД, пароль всё равно проверяется против
 # него, чтобы время ответа не выдавало, существует ли пользователь.
@@ -53,7 +54,8 @@ class UserService(IUserService):
         даёт False — так время ответа не зависит от существования логина."""
         hash_to_check = user.password_hash if user is not None else _DUMMY_HASH
         try:
-            ok = await asyncio.to_thread(_hasher.verify, hash_to_check, password)
-        except (VerificationError, InvalidHashError):
+            # У pwdlib порядок аргументов: сначала пароль, потом хеш.
+            ok = await asyncio.to_thread(_hasher.verify, password, hash_to_check)
+        except UnknownHashError:
             return False
         return ok and user is not None
