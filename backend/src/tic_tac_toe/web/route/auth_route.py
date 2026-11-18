@@ -44,12 +44,8 @@ def _invalid_refresh() -> HTTPException:
     )
 
 
-@router.post(
-    "/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED
-)
-async def signup(
-    request_data: SignUpRequest, service: IAuthService = Depends(get_auth_service)
-):
+@router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
+async def signup(request_data: SignUpRequest, service: IAuthService = Depends(get_auth_service)):
     try:
         user = await service.register(request_data.login, request_data.password)
     except UserAlreadyExistsError:
@@ -61,13 +57,9 @@ async def signup(
 
 
 @router.post("/login", response_model=JwtResponse)
-async def login(
-    request_data: JwtRequest, service: IAuthService = Depends(get_auth_service)
-):
+async def login(request_data: JwtRequest, service: IAuthService = Depends(get_auth_service)):
     try:
-        access, refresh = await service.authenticate(
-            request_data.login, request_data.password
-        )
+        access, refresh = await service.authenticate(request_data.login, request_data.password)
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -115,7 +107,5 @@ async def me(
     """Информация о пользователе по accessToken."""
     user = await user_service.get_by_id(user_id)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return UserResponse(id=user.id, login=user.login)

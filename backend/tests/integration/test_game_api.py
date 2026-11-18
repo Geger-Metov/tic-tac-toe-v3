@@ -120,9 +120,7 @@ async def test_computer_responds_to_move(client):
 async def test_get_nonexistent_game_404(client):
     _, headers = await _signup(client, "alice_404")
 
-    response = await client.get(
-        "/game/00000000-0000-0000-0000-000000000099", headers=headers
-    )
+    response = await client.get("/game/00000000-0000-0000-0000-000000000099", headers=headers)
 
     assert response.status_code == 404
 
@@ -139,9 +137,7 @@ async def test_get_user_by_id(client):
 async def test_get_unknown_user_404(client):
     _, headers = await _signup(client, "alice_unknownuser")
 
-    response = await client.get(
-        "/users/00000000-0000-0000-0000-000000000099", headers=headers
-    )
+    response = await client.get("/users/00000000-0000-0000-0000-000000000099", headers=headers)
 
     assert response.status_code == 404
 
@@ -212,7 +208,7 @@ async def test_history_lists_finished_games_for_both_players(client):
 async def test_history_excludes_unfinished_games(client):
     _, alice = await _signup(client, "hist_unfinished_a")
     _, bob = await _signup(client, "hist_unfinished_b")
-    await client.post("/game", json={"vs_computer": True}, headers=alice)   # идёт
+    await client.post("/game", json={"vs_computer": True}, headers=alice)  # идёт
     await client.post("/game", json={"vs_computer": False}, headers=alice)  # ждёт соперника
     finished_id = await _finished_human_game(client, alice, bob)
 

@@ -8,9 +8,9 @@
 
 from datetime import timedelta
 
-from tic_tac_toe.infrastructure.tasks import cleanup_tasks
-from tic_tac_toe.infrastructure.tasks.celery_app import celery_app
-from tic_tac_toe.infrastructure.tasks.names import CLEANUP_ABANDONED_GAMES
+from src.tic_tac_toe.infrastructure.tasks import cleanup_tasks
+from src.tic_tac_toe.infrastructure.tasks.celery_app import celery_app
+from src.tic_tac_toe.infrastructure.tasks.names import CLEANUP_ABANDONED_GAMES
 
 
 def test_task_is_registered_under_a_stable_name():
@@ -19,9 +19,7 @@ def test_task_is_registered_under_a_stable_name():
 
 def test_beat_schedules_the_cleanup_task():
     entries = [
-        e
-        for e in celery_app.conf.beat_schedule.values()
-        if e["task"] == CLEANUP_ABANDONED_GAMES
+        e for e in celery_app.conf.beat_schedule.values() if e["task"] == CLEANUP_ABANDONED_GAMES
     ]
 
     assert len(entries) == 1

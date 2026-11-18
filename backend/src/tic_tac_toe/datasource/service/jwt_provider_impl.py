@@ -36,15 +36,15 @@ class JwtProvider(IJwtProvider):
         payload = self._decode(token)
         try:
             return UUID(payload["sub"])
-        except (KeyError, ValueError):
-            raise InvalidTokenError("token has no valid 'sub' claim")
+        except (KeyError, ValueError) as e:
+            raise InvalidTokenError("token has no valid 'sub' claim") from e
 
     def get_jti(self, token: str) -> str:
         payload = self._decode(token)
         try:
             return payload["jti"]
-        except KeyError:
-            raise InvalidTokenError("token has no 'jti' claim")
+        except KeyError as e:
+            raise InvalidTokenError("token has no 'jti' claim") from e
 
     def _generate(self, user: User, expires_delta: timedelta, token_type: str) -> str:
         now = datetime.now(UTC)

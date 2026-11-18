@@ -3,17 +3,16 @@ from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
-
-from tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
-from tic_tac_toe.datasource.service.auth_service_impl import AuthService
-from tic_tac_toe.datasource.service.jwt_provider_impl import JwtProvider
-from tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
-from tic_tac_toe.domain.exception.auth_exceptions import (
+from src.tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
+from src.tic_tac_toe.datasource.service.auth_service_impl import AuthService
+from src.tic_tac_toe.datasource.service.jwt_provider_impl import JwtProvider
+from src.tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
+from src.tic_tac_toe.domain.exception.auth_exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
     TooManyLoginAttemptsError,
 )
-from tic_tac_toe.domain.model.user import User
+from src.tic_tac_toe.domain.model.user import User
 
 REFRESH_EXPIRES = timedelta(days=30)
 
@@ -132,9 +131,7 @@ async def test_unknown_refresh_token_rejected(users, fake_redis):
 
 
 async def test_expired_access_token_rejected(users, fake_redis):
-    service = build_service(
-        users, fake_redis, make_provider(access=timedelta(seconds=-1))
-    )
+    service = build_service(users, fake_redis, make_provider(access=timedelta(seconds=-1)))
     users.add("alice", "secret123")
 
     access, _ = await service.authenticate("alice", "secret123")
@@ -163,9 +160,7 @@ def refresh_key(token):
     return f"refresh_token:{UUID(make_provider().get_jti(token))}"
 
 
-async def test_refresh_token_is_stored_with_ttl_of_its_lifetime(
-    service, users, fake_redis
-):
+async def test_refresh_token_is_stored_with_ttl_of_its_lifetime(service, users, fake_redis):
     users.add("alice", "secret123")
 
     _, refresh = await service.authenticate("alice", "secret123")
@@ -199,9 +194,7 @@ async def test_refresh_rejected_after_store_ttl_expires(service, users, fake_red
 # ---- защита логина от перебора --------------------------------------------
 
 
-async def test_login_locks_after_max_failures_even_with_correct_password(
-    service, users
-):
+async def test_login_locks_after_max_failures_even_with_correct_password(service, users):
     users.add("alice", "secret123")
     await fail_login(service, "alice", 5)
 

@@ -19,7 +19,9 @@ async def test_signup_returns_id(client):
 
 async def test_signup_duplicate_login_conflicts(client):
     await client.post("/auth/signup", json={"login": "bob", "password": "secret123"})
-    response = await client.post("/auth/signup", json={"login": "bob", "password": "another-password"})
+    response = await client.post(
+        "/auth/signup", json={"login": "bob", "password": "another-password"}
+    )
 
     assert response.status_code == 409
 
@@ -40,7 +42,9 @@ async def test_login_returns_token_pair(client):
 
 async def test_login_wrong_password(client):
     await client.post("/auth/signup", json={"login": "erin", "password": "secret123"})
-    response = await client.post("/auth/login", json={"login": "erin", "password": "wrong-password"})
+    response = await client.post(
+        "/auth/login", json={"login": "erin", "password": "wrong-password"}
+    )
 
     assert response.status_code == 401
 
@@ -99,7 +103,9 @@ async def test_access_token_cannot_be_used_for_refresh(client):
 async def test_refresh_access_token_issues_new_working_pair(client):
     user_id, tokens = await _signup_and_login(client, "jack")
 
-    response = await client.post("/auth/token/access", json={"refreshToken": tokens["refreshToken"]})
+    response = await client.post(
+        "/auth/token/access", json={"refreshToken": tokens["refreshToken"]}
+    )
 
     assert response.status_code == 200
     new_tokens = response.json()
@@ -123,7 +129,9 @@ async def test_refresh_refresh_token_rotates_and_is_single_use(client):
 
     first = await client.post("/auth/token/refresh", json={"refreshToken": tokens["refreshToken"]})
     replay = await client.post("/auth/token/refresh", json={"refreshToken": tokens["refreshToken"]})
-    chained = await client.post("/auth/token/refresh", json={"refreshToken": first.json()["refreshToken"]})
+    chained = await client.post(
+        "/auth/token/refresh", json={"refreshToken": first.json()["refreshToken"]}
+    )
 
     assert first.status_code == 200
     assert replay.status_code == 401
@@ -132,13 +140,18 @@ async def test_refresh_refresh_token_rotates_and_is_single_use(client):
 
 # ---- защита логина от перебора и refresh в Redis ---------------------------------
 
+
 async def test_login_is_locked_after_repeated_failures(client):
     await client.post("/auth/signup", json={"login": "mallory_target", "password": "secret123"})
     for _ in range(5):
-        response = await client.post("/auth/login", json={"login": "mallory_target", "password": "wrong-password"})
+        response = await client.post(
+            "/auth/login", json={"login": "mallory_target", "password": "wrong-password"}
+        )
         assert response.status_code == 401
 
-    locked = await client.post("/auth/login", json={"login": "mallory_target", "password": "secret123"})
+    locked = await client.post(
+        "/auth/login", json={"login": "mallory_target", "password": "secret123"}
+    )
 
     assert locked.status_code == 429
     assert 1 <= int(locked.headers["Retry-After"]) <= 60
@@ -146,10 +159,14 @@ async def test_login_is_locked_after_repeated_failures(client):
 
 async def test_login_lock_applies_to_unknown_logins_too(client):
     for _ in range(5):
-        response = await client.post("/auth/login", json={"login": "ghost_user", "password": "whatever1"})
+        response = await client.post(
+            "/auth/login", json={"login": "ghost_user", "password": "whatever1"}
+        )
         assert response.status_code == 401
 
-    response = await client.post("/auth/login", json={"login": "ghost_user", "password": "whatever1"})
+    response = await client.post(
+        "/auth/login", json={"login": "ghost_user", "password": "whatever1"}
+    )
 
     assert response.status_code == 429
 
@@ -157,10 +174,14 @@ async def test_login_lock_applies_to_unknown_logins_too(client):
 async def test_successful_login_after_lock_window(client, fake_redis):
     await client.post("/auth/signup", json={"login": "patient_user", "password": "secret123"})
     for _ in range(5):
-        await client.post("/auth/login", json={"login": "patient_user", "password": "wrong-password"})
+        await client.post(
+            "/auth/login", json={"login": "patient_user", "password": "wrong-password"}
+        )
 
     fake_redis.advance(61)
-    response = await client.post("/auth/login", json={"login": "patient_user", "password": "secret123"})
+    response = await client.post(
+        "/auth/login", json={"login": "patient_user", "password": "secret123"}
+    )
 
     assert response.status_code == 200
 
@@ -175,6 +196,8 @@ async def test_refresh_token_expires_in_redis(client, fake_redis):
     _, tokens = await _signup_and_login(client, "expiring_user")
 
     fake_redis.advance(31 * 24 * 3600)  # дольше срока жизни refresh-токена
-    response = await client.post("/auth/token/access", json={"refreshToken": tokens["refreshToken"]})
+    response = await client.post(
+        "/auth/token/access", json={"refreshToken": tokens["refreshToken"]}
+    )
 
     assert response.status_code == 401

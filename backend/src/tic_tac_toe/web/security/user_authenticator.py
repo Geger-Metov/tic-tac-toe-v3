@@ -33,8 +33,8 @@ async def get_current_user_id(
     token = authorization[len(_BEARER_PREFIX) :].strip()
     try:
         return await auth_service.get_user_id_from_access_token(token)
-    except InvalidTokenError:
-        raise _unauthorized("Invalid or expired token")
+    except InvalidTokenError as e:
+        raise _unauthorized("Invalid or expired token") from e
 
 
 def _unauthorized(detail: str) -> HTTPException:

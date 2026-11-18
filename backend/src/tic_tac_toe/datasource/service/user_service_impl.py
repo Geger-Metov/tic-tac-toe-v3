@@ -13,7 +13,8 @@ from tic_tac_toe.domain.service.user_interface import IUserService
 
 # argon2id (через pwdlib) с параметрами из минимальной рекомендации OWASP
 # (19 МиБ памяти, 2 прохода, 1 поток). Значения по умолчанию
-# (PasswordHash.recommended(): 64 МиБ, 4 потока) тяжелее: при параллельных входах контейнер быстро упирается в память.
+# (PasswordHash.recommended(): 64 МиБ, 4 потока) тяжелее: при параллельных
+# входах контейнер быстро упирается в память.
 # У argon2 нет лимита в 72 байта, как у bcrypt.
 _hasher = PasswordHash((Argon2Hasher(time_cost=2, memory_cost=19456, parallelism=1),))
 

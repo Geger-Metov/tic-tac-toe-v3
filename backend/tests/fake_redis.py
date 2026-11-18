@@ -1,6 +1,5 @@
 import math
 import time
-from typing import Dict, Optional
 
 
 class FakeRedis:
@@ -18,8 +17,8 @@ class FakeRedis:
     """
 
     def __init__(self) -> None:
-        self._data: Dict[str, str] = {}
-        self._expires: Dict[str, float] = {}
+        self._data: dict[str, str] = {}
+        self._expires: dict[str, float] = {}
         self._offset = 0.0
 
     # ---- время ----------------------------------------------------------
@@ -38,7 +37,7 @@ class FakeRedis:
 
     # ---- команды --------------------------------------------------------
 
-    async def set(self, name: str, value, ex: Optional[int] = None) -> bool:
+    async def set(self, name: str, value, ex: int | None = None) -> bool:
         self._data[name] = str(value)
         if ex is not None:
             self._expires[name] = self._now() + ex
@@ -46,11 +45,11 @@ class FakeRedis:
             self._expires.pop(name, None)
         return True
 
-    async def get(self, name: str) -> Optional[str]:
+    async def get(self, name: str) -> str | None:
         self._purge(name)
         return self._data.get(name)
 
-    async def getdel(self, name: str) -> Optional[str]:
+    async def getdel(self, name: str) -> str | None:
         self._purge(name)
         self._expires.pop(name, None)
         return self._data.pop(name, None)

@@ -33,7 +33,7 @@ class Game:
     created_at: datetime
 
     @classmethod
-    def create_new(cls, creator_id: UUID, vs_computer: bool) -> "Game":
+    def create_new(cls, creator_id: UUID, vs_computer: bool) -> Game:
         """Создатель всегда играет за X. Если соперник — компьютер, он сразу
         занимает слот O и создатель сразу же может ходить; если соперник —
         человек, слот O пустует до join_game()."""

@@ -1,7 +1,7 @@
 import os
 import sys
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import AsyncGenerator
 
 # --- Гарантируем, что "import tic_tac_toe" сработает, даже если pythonpath
 # --- из [tool.pytest.ini_options] в pyproject.toml по какой-то причине не
@@ -31,15 +31,15 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from src.tic_tac_toe.infrastructure.database.config import get_database_url
+from src.tic_tac_toe.infrastructure.database.session import get_db_session
+from src.tic_tac_toe.main import create_app
 
 from fake_redis import FakeRedis
-from tic_tac_toe.infrastructure.database.config import get_database_url
-from tic_tac_toe.infrastructure.database.session import get_db_session
-from tic_tac_toe.main import create_app
 
 
 @pytest_asyncio.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session() -> AsyncGenerator[AsyncSession]:
     """
     Один тест — одна внешняя транзакция, которая в конце теста откатывается.
     Это позволяет гонять тесты против той же БД, что у тебя в docker compose
@@ -75,7 +75,7 @@ def fake_redis() -> FakeRedis:
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession, fake_redis: FakeRedis) -> AsyncGenerator[AsyncClient, None]:
+async def client(db_session: AsyncSession, fake_redis: FakeRedis) -> AsyncGenerator[AsyncClient]:
     """
     Обычный httpx-клиент, но без сети: ASGITransport вызывает приложение
     напрямую в процессе теста — не нужен ни поднятый uvicorn, ни /docs,
@@ -84,7 +84,7 @@ async def client(db_session: AsyncSession, fake_redis: FakeRedis) -> AsyncGenera
     """
     app = create_app(redis_client=fake_redis)
 
-    async def override_get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_db_session() -> AsyncGenerator[AsyncSession]:
         yield db_session
 
     app.dependency_overrides[get_db_session] = override_get_db_session

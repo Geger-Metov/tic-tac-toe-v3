@@ -32,9 +32,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app_test
-      # Нужен шагам alembic (migrations/env.py читает DATABASE_URL). pytest подставляет его сам
-      # в tests/conftest.py, а для отдельных шагов CI его нужно задать явно
+      # Его читают и alembic (migrations/env.py), и тесты (get_database_url в tests/conftest.py)
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app_test
     defaults:
       run:

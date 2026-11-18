@@ -6,7 +6,7 @@ Create Date: 2026-09-30 03:13:58.927518
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
@@ -14,9 +14,9 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "9e4d7b0afc1d"
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -30,9 +30,7 @@ def upgrade() -> None:
         sa.Column("player_o_id", sa.UUID(), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(
-                "WAITING_FOR_PLAYER", "PLAYER_TURN", "DRAW", "WIN", name="game_status"
-            ),
+            sa.Enum("WAITING_FOR_PLAYER", "PLAYER_TURN", "DRAW", "WIN", name="game_status"),
             nullable=False,
         ),
         sa.Column("status_player_id", sa.UUID(), nullable=True),

@@ -44,9 +44,7 @@ class GameRepo:
         return to_domain(data_model) if data_model is not None else None
 
     async def find_waiting_games(self) -> list[DomainGame]:
-        stmt = select(GameModel).where(
-            GameModel.status == GameStatus.WAITING_FOR_PLAYER
-        )
+        stmt = select(GameModel).where(GameModel.status == GameStatus.WAITING_FOR_PLAYER)
         res = await self._session.execute(stmt)
         return [to_domain(model) for model in res.scalars().all()]
 
@@ -59,9 +57,7 @@ class GameRepo:
         stmt = (
             select(GameModel)
             .where(GameModel.status.in_([GameStatus.WIN, GameStatus.DRAW]))
-            .where(
-                or_(GameModel.player_x_id == user_id, GameModel.player_o_id == user_id)
-            )
+            .where(or_(GameModel.player_x_id == user_id, GameModel.player_o_id == user_id))
             .order_by(GameModel.created_at.desc())
         )
         result = await self._session.execute(stmt)
@@ -99,12 +95,8 @@ class GameRepo:
         participation = union_all(as_x, as_o).subquery("participation")
         p = participation.c
 
-        wins = func.count().filter(
-            and_(p.status == GameStatus.WIN, p.winner_id == p.user_id)
-        )
-        losses = func.count().filter(
-            and_(p.status == GameStatus.WIN, p.winner_id != p.user_id)
-        )
+        wins = func.count().filter(and_(p.status == GameStatus.WIN, p.winner_id == p.user_id))
+        losses = func.count().filter(and_(p.status == GameStatus.WIN, p.winner_id != p.user_id))
         draws = func.count().filter(p.status == GameStatus.DRAW)
         win_ratio = cast(wins, Float) / func.count()
 
@@ -125,8 +117,8 @@ class GameRepo:
         )
         result = await self._session.execute(stmt)
         return [
-            PlayerRating(user_id=user_id, login=login, wins=w, losses=l, draws=d)
-            for user_id, login, w, l, d in result.all()
+            PlayerRating(user_id=user_id, login=login, wins=wins, losses=losses, draws=draws)
+            for user_id, login, wins, losses, draws in result.all()
         ]
 
     async def delete_abandoned_waiting(self, created_before: datetime) -> int:

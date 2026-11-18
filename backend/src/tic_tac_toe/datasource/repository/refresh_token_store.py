@@ -29,9 +29,7 @@ class RefreshTokenStore:
 
     async def register(self, jti: UUID, user_id: UUID, ttl: timedelta) -> None:
         # max(..., 1): SET ... EX 0 Redis отвергает; токен со сроком < 1 с не бывает смысла хранить.
-        await self._redis.set(
-            self._key(jti), str(user_id), ex=max(int(ttl.total_seconds()), 1)
-        )
+        await self._redis.set(self._key(jti), str(user_id), ex=max(int(ttl.total_seconds()), 1))
 
     async def claim(self, jti: UUID) -> UUID | None:
         """UUID владельца, если токен был выпущен, не использован и не просрочен

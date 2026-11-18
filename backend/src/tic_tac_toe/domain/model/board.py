@@ -10,7 +10,7 @@ class Board:
     @classmethod
     def create_empty(
         cls,
-    ) -> "Board":  # forward reference, так как класс еще не определен
+    ) -> Board:  # forward reference, так как класс еще не определен
         return cls(grid=[[0, 0, 0], [0, 0, 0], [0, 0, 0]])
 
     def get_cell(self, row: int, col: int) -> int:

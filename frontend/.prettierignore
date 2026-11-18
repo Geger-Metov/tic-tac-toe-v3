@@ -1,2 +1,6 @@
-node_modoles
+node_modules
+dist
+coverage
+playwright-report
+test-results
 pnpm-lock.yaml

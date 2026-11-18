@@ -3,51 +3,20 @@ import type { Cell, Grid } from "../api/types";
 const SIZE = 300;
 const STEP = SIZE / 3;
 
+// prettier-ignore
 const LINES: [number, number][][] = [
-  [
-    [0, 0],
-    [0, 1],
-    [0, 2],
-  ],
-  [
-    [1, 0],
-    [1, 1],
-    [1, 2],
-  ],
-  [
-    [2, 0],
-    [2, 1],
-    [2, 2],
-  ],
-  [
-    [0, 0],
-    [1, 0],
-    [2, 0],
-  ],
-  [
-    [0, 1],
-    [1, 1],
-    [2, 1],
-  ],
-  [
-    [0, 2],
-    [1, 2],
-    [2, 2],
-  ],
-  [
-    [0, 0],
-    [1, 1],
-    [2, 2],
-  ],
-  [
-    [0, 2],
-    [1, 1],
-    [2, 0],
-  ],
+  [[0, 0], [0, 1], [0, 2]],
+  [[1, 0], [1, 1], [1, 2]],
+  [[2, 0], [2, 1], [2, 2]],
+  [[0, 0], [1, 0], [2, 0]],
+  [[0, 1], [1, 1], [2, 1]],
+  [[0, 2], [1, 2], [2, 2]],
+  [[0, 0], [1, 1], [2, 2]],
+  [[0, 2], [1, 1], [2, 0]],
 ];
 
 /** Выигрышная линия (если есть) — для зачёркивания. */
-export function findWinningLine(grid: Grid): [number, number][] | null {
+function findWinningLine(grid: Grid): [number, number][] | null {
   for (const line of LINES) {
     const [a, b, c] = line.map(([r, col]) => grid[r][col]);
     if (a !== 0 && a === b && b === c) return line;

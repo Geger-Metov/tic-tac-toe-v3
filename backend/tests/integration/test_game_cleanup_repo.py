@@ -1,13 +1,12 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import select
-
-from tic_tac_toe.datasource.repository.game_repository import GameRepo
-from tic_tac_toe.domain.model.board import Board
-from tic_tac_toe.domain.model.game import Game
-from tic_tac_toe.domain.model.game_state import PlayerTurn, WaitingForPlayer, Win
-from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel
+from src.tic_tac_toe.datasource.repository.game_repository import GameRepo
+from src.tic_tac_toe.domain.model.board import Board
+from src.tic_tac_toe.domain.model.game import Game
+from src.tic_tac_toe.domain.model.game_state import PlayerTurn, WaitingForPlayer, Win
+from src.tic_tac_toe.infrastructure.persistence.model.game_model import GameModel
 
 
 def _game(state, age, player_o=None):
@@ -18,7 +17,7 @@ def _game(state, age, player_o=None):
         player_x_id=x,
         player_o_id=player_o,
         state=state,
-        created_at=datetime.now(timezone.utc) - age,
+        created_at=datetime.now(UTC) - age,
     )
 
 
@@ -41,9 +40,7 @@ async def test_deletes_only_old_games_that_wait_for_a_player(db_session):
     for game in games:
         await repo.save(game)
 
-    deleted = await repo.delete_abandoned_waiting(
-        datetime.now(timezone.utc) - timedelta(hours=24)
-    )
+    deleted = await repo.delete_abandoned_waiting(datetime.now(UTC) - timedelta(hours=24))
 
     assert deleted >= 1
     assert await _existing(db_session, games) == {
@@ -58,10 +55,8 @@ async def test_cutoff_is_exclusive_of_newer_games(db_session):
     waiting = _game(WaitingForPlayer(), timedelta(hours=2))
     await repo.save(waiting)
 
-    await repo.delete_abandoned_waiting(datetime.now(timezone.utc) - timedelta(hours=3))
-    assert await _existing(db_session, [waiting]) == {
-        waiting.id
-    }  # моложе порога — на месте
+    await repo.delete_abandoned_waiting(datetime.now(UTC) - timedelta(hours=3))
+    assert await _existing(db_session, [waiting]) == {waiting.id}  # моложе порога — на месте
 
-    await repo.delete_abandoned_waiting(datetime.now(timezone.utc) - timedelta(hours=1))
+    await repo.delete_abandoned_waiting(datetime.now(UTC) - timedelta(hours=1))
     assert await _existing(db_session, [waiting]) == set()  # старше порога — удалена

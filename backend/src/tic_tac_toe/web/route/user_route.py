@@ -33,7 +33,5 @@ async def get_user(
 ):
     user = await service.get_by_id(user_id)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return UserResponse(id=user.id, login=user.login)

@@ -21,9 +21,7 @@ router = APIRouter(
 @router.get("", response_model=list[LeaderboardEntryResponse])
 async def get_leaderboard(
     # Верхняя граница защищает от запроса "дай мне всех" одним вызовом.
-    n: int = Query(
-        default=10, ge=1, le=100, description="Сколько лучших игроков вернуть"
-    ),
+    n: int = Query(default=10, ge=1, le=100, description="Сколько лучших игроков вернуть"),
     service: IGameService = Depends(get_game_service),
 ):
     """Топ-N игроков по доле побед среди завершённых игр (лучшие первыми)."""

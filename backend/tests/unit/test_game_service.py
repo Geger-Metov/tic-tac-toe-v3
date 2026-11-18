@@ -1,21 +1,20 @@
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-
-from tic_tac_toe.datasource.service.game_service_impl import GameService
-from tic_tac_toe.domain.exception.game_exceptions import (
+from src.tic_tac_toe.datasource.service.game_service_impl import GameService
+from src.tic_tac_toe.domain.exception.game_exceptions import (
     GameNotFoundError,
     GameNotJoinableError,
     InvalidMoveError,
     InvalidTurnError,
     NotParticipantError,
 )
-from tic_tac_toe.domain.model.board import Board
-from tic_tac_toe.domain.model.game import COMPUTER_ID
-from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
-from tic_tac_toe.domain.model.player_rating import PlayerRating
+from src.tic_tac_toe.domain.model.board import Board
+from src.tic_tac_toe.domain.model.game import COMPUTER_ID
+from src.tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
+from src.tic_tac_toe.domain.model.player_rating import PlayerRating
 
 
 class FakeGameRepo:
@@ -60,8 +59,7 @@ class FakeGameRepo:
         finished = [
             g
             for g in self.store.values()
-            if isinstance(g.state, (Win, Draw))
-            and user_id in (g.player_x_id, g.player_o_id)
+            if isinstance(g.state, (Win, Draw)) and user_id in (g.player_x_id, g.player_o_id)
         ]
         return sorted(finished, key=lambda g: g.created_at, reverse=True)
 
@@ -93,9 +91,7 @@ async def test_create_game_vs_computer_starts_immediately(service):
 async def test_available_games_lists_only_waiting(service):
     alice, bob = uuid4(), uuid4()
     waiting = await service.create_game(creator_id=alice, vs_computer=False)
-    await service.create_game(
-        creator_id=bob, vs_computer=True
-    )  # не должна попасть в список
+    await service.create_game(creator_id=bob, vs_computer=True)  # не должна попасть в список
 
     available = await service.get_available_games()
 
@@ -187,21 +183,11 @@ async def test_win_is_detected_and_ends_game(service):
     await service.join_game(game.id, bob)
 
     # X: (0,0),(0,1),(0,2) — победа по верхней строке; O ходит куда угодно между
-    await service.make_move(
-        game.id, alice, Board(grid=[[1, 0, 0], [0, 0, 0], [0, 0, 0]])
-    )
-    await service.make_move(
-        game.id, bob, Board(grid=[[1, 0, 0], [0, -1, 0], [0, 0, 0]])
-    )
-    await service.make_move(
-        game.id, alice, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, 0]])
-    )
-    await service.make_move(
-        game.id, bob, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, -1]])
-    )
-    final = await service.make_move(
-        game.id, alice, Board(grid=[[1, 1, 1], [0, -1, 0], [0, 0, -1]])
-    )
+    await service.make_move(game.id, alice, Board(grid=[[1, 0, 0], [0, 0, 0], [0, 0, 0]]))
+    await service.make_move(game.id, bob, Board(grid=[[1, 0, 0], [0, -1, 0], [0, 0, 0]]))
+    await service.make_move(game.id, alice, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, 0]]))
+    await service.make_move(game.id, bob, Board(grid=[[1, 1, 0], [0, -1, 0], [0, 0, -1]]))
+    final = await service.make_move(game.id, alice, Board(grid=[[1, 1, 1], [0, -1, 0], [0, 0, -1]]))
 
     assert isinstance(final.state, Win)
     assert final.state.player_id == alice
@@ -243,9 +229,7 @@ async def play_moves(service, game, moves):
     for i, (row, col) in enumerate(moves):
         player_id, symbol = players[i % 2]
         grid[row][col] = symbol
-        result = await service.make_move(
-            game.id, player_id, Board(grid=[r[:] for r in grid])
-        )
+        result = await service.make_move(game.id, player_id, Board(grid=[r[:] for r in grid]))
     return result
 
 
@@ -282,17 +266,11 @@ async def test_finished_games_include_win_and_draw_for_both_players(service):
 
 async def test_finished_games_exclude_unfinished_and_foreign(service):
     alice, bob, carol, dave = uuid4(), uuid4(), uuid4(), uuid4()
-    finished = await play_moves(
-        service, await new_human_game(service, alice, bob), X_WINS
-    )
+    finished = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
     await new_human_game(service, alice, carol)  # идёт, ходов нет
     await service.create_game(creator_id=alice, vs_computer=False)  # ждёт соперника
-    await service.create_game(
-        creator_id=alice, vs_computer=True
-    )  # идёт против компьютера
-    await play_moves(
-        service, await new_human_game(service, carol, dave), X_WINS
-    )  # чужая
+    await service.create_game(creator_id=alice, vs_computer=True)  # идёт против компьютера
+    await play_moves(service, await new_human_game(service, carol, dave), X_WINS)  # чужая
 
     history = await service.get_finished_games_by_user(alice)
 
@@ -303,9 +281,7 @@ async def test_finished_games_exclude_unfinished_and_foreign(service):
 async def test_finished_games_newest_first(service):
     alice, bob = uuid4(), uuid4()
     first = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
-    second = await play_moves(
-        service, await new_human_game(service, alice, bob), X_WINS
-    )
+    second = await play_moves(service, await new_human_game(service, alice, bob), X_WINS)
 
     history = await service.get_finished_games_by_user(alice)
 
@@ -318,9 +294,7 @@ async def test_finished_games_newest_first(service):
 
 
 def rating(wins, losses, draws, login="p"):
-    return PlayerRating(
-        user_id=uuid4(), login=login, wins=wins, losses=losses, draws=draws
-    )
+    return PlayerRating(user_id=uuid4(), login=login, wins=wins, losses=losses, draws=draws)
 
 
 def test_win_ratio_is_share_of_finished_games():
@@ -349,9 +323,7 @@ def test_win_ratio_ranks_like_wins_to_losses_and_draws():
     by_share = sorted(players, key=lambda p: -p.win_ratio)
     by_literal = sorted(
         players,
-        key=lambda p: (
-            -(p.wins / (p.losses + p.draws) if p.losses + p.draws else float("inf"))
-        ),
+        key=lambda p: -(p.wins / (p.losses + p.draws) if p.losses + p.draws else float("inf")),
     )
 
     assert by_share == by_literal
@@ -388,9 +360,7 @@ async def test_cleanup_deletes_only_old_games_waiting_for_a_player(service):
     old_waiting = await service.create_game(creator_id=alice, vs_computer=False)
     fresh_waiting = await service.create_game(creator_id=alice, vs_computer=False)
     old_in_progress = await new_human_game(service, alice, bob)
-    old_finished = await play_moves(
-        service, await new_human_game(service, alice, carol), X_WINS
-    )
+    old_finished = await play_moves(service, await new_human_game(service, alice, carol), X_WINS)
     old_vs_computer = await service.create_game(creator_id=alice, vs_computer=True)
     for game in (old_waiting, old_in_progress, old_finished, old_vs_computer):
         age_game(service, game, timedelta(days=2))
@@ -415,11 +385,11 @@ async def test_cleanup_with_nothing_abandoned_deletes_nothing(service):
 
 
 async def test_cleanup_cutoff_is_relative_to_now(service):
-    before = datetime.now(timezone.utc)
+    before = datetime.now(UTC)
 
     await service.delete_abandoned_games(timedelta(hours=6))
 
-    after = datetime.now(timezone.utc)
+    after = datetime.now(UTC)
     cutoff = service._repo.last_cutoff
     assert before - timedelta(hours=6) <= cutoff <= after - timedelta(hours=6)
 
@@ -428,7 +398,5 @@ async def test_game_older_than_max_age_is_abandoned_but_a_younger_one_is_not(ser
     waiting = await service.create_game(creator_id=uuid4(), vs_computer=False)
     age_game(service, waiting, timedelta(hours=10))
 
-    assert (
-        await service.delete_abandoned_games(timedelta(hours=12)) == 0
-    )  # ещё не брошена
+    assert await service.delete_abandoned_games(timedelta(hours=12)) == 0  # ещё не брошена
     assert await service.delete_abandoned_games(timedelta(hours=8)) == 1  # уже брошена

@@ -39,9 +39,7 @@ class Container:
     """
 
     def __init__(self, redis_client: Redis | None = None) -> None:
-        self._redis: Redis = (
-            redis_client if redis_client is not None else create_redis_client()
-        )
+        self._redis: Redis = redis_client if redis_client is not None else create_redis_client()
         self._refresh_expires = get_refresh_token_expires()
         self._jwt_provider: IJwtProvider = JwtProvider(
             secret_key=get_jwt_secret_key(),

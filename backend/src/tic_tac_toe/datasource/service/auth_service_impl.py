@@ -73,8 +73,8 @@ class AuthService(IAuthService):
 
         try:
             jti = UUID(self._jwt_provider.get_jti(refresh_token))
-        except ValueError:
-            raise InvalidTokenError("invalid refresh token")
+        except ValueError as e:
+            raise InvalidTokenError("invalid refresh token") from e
 
         user_id = await self._refresh_tokens.claim(jti)
         if user_id is None:

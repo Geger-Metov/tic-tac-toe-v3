@@ -91,11 +91,11 @@ async def test_leaderboard_ranks_by_win_ratio(client):
     eve = await _signup(client, "lb_eve")
     frank = await _signup(client, "lb_frank")
 
-    await _play_human_game(client, alice, bob, X_WINS)    # alice побеждает
-    await _play_human_game(client, alice, bob, X_WINS)    # alice побеждает
-    await _play_human_game(client, bob, alice, X_WINS)    # bob побеждает
+    await _play_human_game(client, alice, bob, X_WINS)  # alice побеждает
+    await _play_human_game(client, alice, bob, X_WINS)  # alice побеждает
+    await _play_human_game(client, bob, alice, X_WINS)  # bob побеждает
     await _play_human_game(client, carol, dave, DRAW_MOVES)  # ничья
-    await _play_human_game(client, eve, frank, X_WINS)    # eve побеждает
+    await _play_human_game(client, eve, frank, X_WINS)  # eve побеждает
 
     # В dev-БД могут лежать чужие данные, поэтому смотрим только на своих.
     ours = [e for e in await _leaderboard(client, alice) if e["login"].startswith("lb_")]
@@ -103,7 +103,12 @@ async def test_leaderboard_ranks_by_win_ratio(client):
     # eve 1/1, alice 2/3, bob 1/3, потом нули: при равной доле и равных
     # победах порядок по логину (carol, dave, frank).
     assert [e["login"] for e in ours] == [
-        "lb_eve", "lb_alice", "lb_bob", "lb_carol", "lb_dave", "lb_frank",
+        "lb_eve",
+        "lb_alice",
+        "lb_bob",
+        "lb_carol",
+        "lb_dave",
+        "lb_frank",
     ]
     ratios = {e["login"]: e["win_ratio"] for e in ours}
     assert ratios["lb_eve"] == pytest.approx(1.0)
@@ -139,7 +144,7 @@ async def test_leaderboard_limits_to_n(client):
 async def test_leaderboard_ignores_unfinished_games(client):
     alice = await _signup(client, "lb_unfinished")
     await client.post("/game", json={"vs_computer": False}, headers=alice)  # ждёт соперника
-    await client.post("/game", json={"vs_computer": True}, headers=alice)   # идёт
+    await client.post("/game", json={"vs_computer": True}, headers=alice)  # идёт
 
     assert [e for e in await _leaderboard(client, alice) if e["login"] == "lb_unfinished"] == []
 

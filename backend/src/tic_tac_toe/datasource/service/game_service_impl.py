@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
+from functools import cache
 from uuid import UUID
 
 from tic_tac_toe.datasource.repository.game_repository import GameRepo
@@ -16,15 +16,19 @@ from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, Win
 from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.domain.service.game_interface import IGameService
 
-
 _WIN_SCORE = 10
 _DRAW_SCORE = 0
 
 # Клетки доски в плоском кортеже (индекс = строка * 3 + столбец) и все 8 линий.
 _LINES = (
-    (0, 1, 2), (3, 4, 5), (6, 7, 8),
-    (0, 3, 6), (1, 4, 7), (2, 5, 8),
-    (0, 4, 8), (2, 4, 6),
+    (0, 1, 2),
+    (3, 4, 5),
+    (6, 7, 8),
+    (0, 3, 6),
+    (1, 4, 7),
+    (2, 5, 8),
+    (0, 4, 8),
+    (2, 4, 6),
 )
 
 
@@ -35,7 +39,7 @@ def _winner(cells: tuple[int, ...]) -> int:
     return 0
 
 
-@lru_cache(maxsize=None)
+@cache
 def _minimax_cached(cells: tuple[int, ...], depth: int, is_maximizing: bool) -> int:
     """
     Минимакс с мемоизацией по (позиция, глубина, чей ход). Всего позиций
