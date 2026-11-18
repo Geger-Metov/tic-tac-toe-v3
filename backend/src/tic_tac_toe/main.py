@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from redis.asyncio import Redis
 
 from tic_tac_toe.di.container import Container
+from tic_tac_toe.infrastructure.database.config import get_database_url
+from tic_tac_toe.infrastructure.database.session import create_engine, create_sessionmaker
 from tic_tac_toe.web.route.auth_route import router as auth_router
 from tic_tac_toe.web.route.game_route import router as game_router
 from tic_tac_toe.web.route.leaderboard_route import router as leaderboard_router
@@ -21,6 +23,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
     # При остановке отдаём соединения Redis (схемой БД тут по-прежнему не занимаемся).
     await app.state.container.close()
+    # Возвращаем соединения PostgreSQL в штатном порядке.
+    await app.state.engine.dispose()
 
 
 def create_app(redis_client: Redis | None = None) -> FastAPI:
@@ -34,6 +38,12 @@ def create_app(redis_client: Redis | None = None) -> FastAPI:
         redoc_url="/redoc",  # Альтернативная документация ReDoc
         lifespan=lifespan,
     )
+    # Engine и фабрика сессий принадлежат приложению (а не модулю): их читает
+    # get_db_session через request.app.state, закрывает lifespan. Подключения
+    # к БД engine открывает лениво, при первом запросе.
+    engine = create_engine(get_database_url())
+    app.state.engine = engine
+    app.state.sessionmaker = create_sessionmaker(engine)
     # Создаём DI-контейнер и сохраняем в состоянии приложения
     container = Container(redis_client=redis_client)
     app.state.container = container
