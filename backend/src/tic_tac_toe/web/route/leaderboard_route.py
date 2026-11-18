@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, Query
 
 from tic_tac_toe.web.mapper.domain_web_mapper import GameWebMapper
 from tic_tac_toe.web.model.response_model import LeaderboardEntryResponse
-from tic_tac_toe.web.route.deps import GameServiceDep
-from tic_tac_toe.web.security.user_authenticator import get_current_user_id
+from tic_tac_toe.web.route.deps import GameServiceDep, get_current_user_id
 
 # Авторизация навешана на весь роутер (UserAuthenticator), а не на отдельные
 # функции: рейтинг для всех одинаков, UUID запрашивающего эндпоинту не нужен,

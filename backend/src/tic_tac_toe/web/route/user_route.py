@@ -3,8 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from tic_tac_toe.web.model.response_model import UserResponse
-from tic_tac_toe.web.route.deps import UserServiceDep
-from tic_tac_toe.web.security.user_authenticator import get_current_user_id
+from tic_tac_toe.web.route.deps import UserServiceDep, get_current_user_id
 
 router = APIRouter(
     prefix="/users",

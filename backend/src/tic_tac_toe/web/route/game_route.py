@@ -12,8 +12,7 @@ from tic_tac_toe.domain.exception.game_exceptions import (
 from tic_tac_toe.web.mapper.domain_web_mapper import GameWebMapper
 from tic_tac_toe.web.model.request_model import CreateGameRequest, MoveRequest
 from tic_tac_toe.web.model.response_model import GameResponse
-from tic_tac_toe.web.route.deps import CurrentUserId, GameServiceDep
-from tic_tac_toe.web.security.user_authenticator import get_current_user_id
+from tic_tac_toe.web.route.deps import CurrentUserId, GameServiceDep, get_current_user_id
 
 router = APIRouter(
     prefix="/game",
