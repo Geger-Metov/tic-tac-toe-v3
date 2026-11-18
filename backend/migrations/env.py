@@ -42,13 +42,13 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from src.tic_tac_toe.infrastructure.database.base import Base
-from src.tic_tac_toe.infrastructure.database.config import get_database_url
+from tic_tac_toe.infrastructure.database.base import Base
+from tic_tac_toe.infrastructure.database.config import get_database_url
 
 # Импорт моделей обязателен: только так они регистрируются в Base.metadata,
 # и только тогда autogenerate вообще их увидит.
-from src.tic_tac_toe.infrastructure.persistence.model.game_model import GameModel  # noqa: F401
-from src.tic_tac_toe.infrastructure.persistence.model.user_model import UserModel  # noqa: F401
+from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel  # noqa: F401
+from tic_tac_toe.infrastructure.persistence.model.user_model import UserModel  # noqa: F401
 
 target_metadata = Base.metadata
 

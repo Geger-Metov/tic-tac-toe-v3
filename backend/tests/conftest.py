@@ -31,11 +31,11 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from src.tic_tac_toe.infrastructure.database.config import get_database_url
-from src.tic_tac_toe.infrastructure.database.session import get_db_session
-from src.tic_tac_toe.main import create_app
 
 from fake_redis import FakeRedis
+from tic_tac_toe.infrastructure.database.config import get_database_url
+from tic_tac_toe.infrastructure.database.session import get_db_session
+from tic_tac_toe.main import create_app
 
 
 @pytest_asyncio.fixture

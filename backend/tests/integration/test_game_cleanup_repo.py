@@ -2,11 +2,12 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import select
-from src.tic_tac_toe.datasource.repository.game_repository import GameRepo
-from src.tic_tac_toe.domain.model.board import Board
-from src.tic_tac_toe.domain.model.game import Game
-from src.tic_tac_toe.domain.model.game_state import PlayerTurn, WaitingForPlayer, Win
-from src.tic_tac_toe.infrastructure.persistence.model.game_model import GameModel
+
+from tic_tac_toe.datasource.repository.game_repository import GameRepo
+from tic_tac_toe.domain.model.board import Board
+from tic_tac_toe.domain.model.game import Game
+from tic_tac_toe.domain.model.game_state import PlayerTurn, WaitingForPlayer, Win
+from tic_tac_toe.infrastructure.persistence.model.game_model import GameModel
 
 
 def _game(state, age, player_o=None):

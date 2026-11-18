@@ -13,12 +13,12 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from redis.asyncio import Redis
-from src.tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
-from src.tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
-from src.tic_tac_toe.domain.exception.auth_exceptions import TooManyLoginAttemptsError
-from src.tic_tac_toe.infrastructure.cache.redis_config import get_redis_url
 
 from fake_redis import FakeRedis
+from tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
+from tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
+from tic_tac_toe.domain.exception.auth_exceptions import TooManyLoginAttemptsError
+from tic_tac_toe.infrastructure.cache.redis_config import get_redis_url
 
 
 async def _connect_real() -> Redis:

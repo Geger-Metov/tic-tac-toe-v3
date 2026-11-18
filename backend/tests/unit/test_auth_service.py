@@ -3,16 +3,17 @@ from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from src.tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
-from src.tic_tac_toe.datasource.service.auth_service_impl import AuthService
-from src.tic_tac_toe.datasource.service.jwt_provider_impl import JwtProvider
-from src.tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
-from src.tic_tac_toe.domain.exception.auth_exceptions import (
+
+from tic_tac_toe.datasource.repository.refresh_token_store import RefreshTokenStore
+from tic_tac_toe.datasource.service.auth_service_impl import AuthService
+from tic_tac_toe.datasource.service.jwt_provider_impl import JwtProvider
+from tic_tac_toe.datasource.service.login_rate_limiter import LoginRateLimiter
+from tic_tac_toe.domain.exception.auth_exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
     TooManyLoginAttemptsError,
 )
-from src.tic_tac_toe.domain.model.user import User
+from tic_tac_toe.domain.model.user import User
 
 REFRESH_EXPIRES = timedelta(days=30)
 

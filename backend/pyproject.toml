@@ -79,3 +79,7 @@ omit = []
 show_missing = true
 skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+# хз, что за ошибка с импортами
+[tool.pyright]
+extraPaths = ["src"]

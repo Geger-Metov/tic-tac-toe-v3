@@ -8,9 +8,9 @@
 
 from datetime import timedelta
 
-from src.tic_tac_toe.infrastructure.tasks import cleanup_tasks
-from src.tic_tac_toe.infrastructure.tasks.celery_app import celery_app
-from src.tic_tac_toe.infrastructure.tasks.names import CLEANUP_ABANDONED_GAMES
+from tic_tac_toe.infrastructure.tasks import cleanup_tasks
+from tic_tac_toe.infrastructure.tasks.celery_app import celery_app
+from tic_tac_toe.infrastructure.tasks.names import CLEANUP_ABANDONED_GAMES
 
 
 def test_task_is_registered_under_a_stable_name():

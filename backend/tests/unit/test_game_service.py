@@ -3,18 +3,19 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from src.tic_tac_toe.datasource.service.game_service_impl import GameService
-from src.tic_tac_toe.domain.exception.game_exceptions import (
+
+from tic_tac_toe.datasource.service.game_service_impl import GameService
+from tic_tac_toe.domain.exception.game_exceptions import (
     GameNotFoundError,
     GameNotJoinableError,
     InvalidMoveError,
     InvalidTurnError,
     NotParticipantError,
 )
-from src.tic_tac_toe.domain.model.board import Board
-from src.tic_tac_toe.domain.model.game import COMPUTER_ID
-from src.tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
-from src.tic_tac_toe.domain.model.player_rating import PlayerRating
+from tic_tac_toe.domain.model.board import Board
+from tic_tac_toe.domain.model.game import COMPUTER_ID
+from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, WaitingForPlayer, Win
+from tic_tac_toe.domain.model.player_rating import PlayerRating
 
 
 class FakeGameRepo:
