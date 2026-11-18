@@ -1,5 +1,31 @@
 #   uv tool install pre-commit && pre-commit install
 repos:
+  # Ruff для бэкенда. Настройки берутся из backend/pyproject.toml.
+  # Версию держите близкой к версии ruff в backend/uv.lock (или: pre-commit autoupdate)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^backend/
+        exclude: ^backend/migrations/versions/
+      - id: ruff-format
+        files: ^backend/
+        exclude: ^backend/migrations/versions/
+
+  # mypy запускается через uv в окружении backend: ему нужны установленные sqlalchemy,
+  # pydantic и т. д. (изолированное окружение pre-commit их не видит).
+  # Проверяется весь пакет сразу (pass_filenames: false), поэтому хук срабатывает
+  # на любое изменение .py в backend/src. Тесты и миграции не проверяем.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        language: system
+        entry: bash -c 'cd backend && uv run mypy src'
+        pass_filenames: false
+        files: ^backend/src/.*\.py$
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
