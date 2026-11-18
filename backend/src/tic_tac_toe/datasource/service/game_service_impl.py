@@ -12,7 +12,7 @@ from tic_tac_toe.domain.exception.game_exceptions import (
 )
 from tic_tac_toe.domain.model.board import Board
 from tic_tac_toe.domain.model.game import COMPUTER_ID, O_SYMBOL, X_SYMBOL, Game
-from tic_tac_toe.domain.model.game_state import Draw, PlayerTurn, Win
+from tic_tac_toe.domain.model.game_state import Draw, GameState, PlayerTurn, Win
 from tic_tac_toe.domain.model.player_rating import PlayerRating
 from tic_tac_toe.domain.service.game_interface import IGameService
 
@@ -178,6 +178,7 @@ class GameService(IGameService):
 
     def _apply_move(self, game: Game, new_board: Board, mover_id: UUID) -> Game:
         """Возвращает новую Game с обновлённой доской и пересчитанным состоянием."""
+        new_state: GameState
         winner_symbol = self._check_winner(new_board)
         if winner_symbol != 0:
             new_state = Win(mover_id)
@@ -185,6 +186,10 @@ class GameService(IGameService):
             new_state = Draw()
         else:
             opponent_id = game.opponent_of(mover_id)
+            if opponent_id is None:
+                # Невозможно: ходить может только участник игры, а ходы в игре без
+                # соперника отсекаются раньше.
+                raise ValueError("Move made in a game without an opponent")
             new_state = PlayerTurn(opponent_id)
 
         return Game(

@@ -61,10 +61,6 @@ ignore = ["UP042"]
 # Маршруты намеренно превращают доменные исключения в HTTPException без цепочки.
 "src/tic_tac_toe/web/route/*" = ["B904"]
 
-#[tool.ruff.lint.flake8-bugbear]
-# Depends() / Header() и т. п. в значениях по умолчанию — штатный приём FastAPI.
-#extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query"]
-
 [tool.mypy]
 python_version = "3.15"
 

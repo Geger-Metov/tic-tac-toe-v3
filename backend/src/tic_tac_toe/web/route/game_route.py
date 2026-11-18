@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from tic_tac_toe.domain.exception.game_exceptions import (
     GameNotFoundError,
@@ -9,11 +9,10 @@ from tic_tac_toe.domain.exception.game_exceptions import (
     InvalidTurnError,
     NotParticipantError,
 )
-from tic_tac_toe.domain.service.game_interface import IGameService
-from tic_tac_toe.infrastructure.database.session import DbSession
 from tic_tac_toe.web.mapper.domain_web_mapper import GameWebMapper
 from tic_tac_toe.web.model.request_model import CreateGameRequest, MoveRequest
 from tic_tac_toe.web.model.response_model import GameResponse
+from tic_tac_toe.web.route.deps import CurrentUserId, GameServiceDep
 from tic_tac_toe.web.security.user_authenticator import get_current_user_id
 
 router = APIRouter(
@@ -23,20 +22,12 @@ router = APIRouter(
 )
 
 
-def get_game_service(
-    request: Request,
-    session: DbSession,
-) -> IGameService:
-    container = request.app.state.container
-    return container.get_game_service(session)
-
-
-@router.post("", response_model=GameResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_game(
     request_data: CreateGameRequest,
-    service: IGameService = Depends(get_game_service),
-    user_id: UUID = Depends(get_current_user_id),
-):
+    service: GameServiceDep,
+    user_id: CurrentUserId,
+) -> GameResponse:
     """Создаёт новую игру с человеком (ждёт второго игрока) или с компьютером."""
     game = await service.create_game(creator_id=user_id, vs_computer=request_data.vs_computer)
     return GameWebMapper.domain_to_response(game)
@@ -45,14 +36,13 @@ async def create_game(
 # Важно: этот маршрут должен быть объявлен РАНЬШЕ "/{game_id}" — иначе FastAPI
 # попытается распарсить "available" как UUID для {game_id} и вернёт 422,
 # так и не дойдя до этого обработчика.
-@router.get("/available", response_model=list[GameResponse])
+@router.get("/available")
 async def list_available_games(
-    service: IGameService = Depends(get_game_service),
+    service: GameServiceDep,
     # UserAuthenticator: сам список не персонализирован, но эндпоинт всё равно
     # закрыт — по ТЗ авторизация обязательна для всех эндпоинтов, кроме
     # регистрации и логина.
-    user_id: UUID = Depends(get_current_user_id),
-):
+) -> list[GameResponse]:
     """Игры, ожидающие второго игрока-человека (создатель ждёт присоединения)."""
     games = await service.get_available_games()
     return [GameWebMapper.domain_to_response(g) for g in games]
@@ -60,23 +50,22 @@ async def list_available_games(
 
 # Как и "/available", объявлен РАНЬШЕ "/{game_id}" — иначе "history" будет
 # принят за UUID и запрос получит 422.
-@router.get("/history", response_model=list[GameResponse])
+@router.get("/history")
 async def list_finished_games(
-    service: IGameService = Depends(get_game_service),
-    user_id: UUID = Depends(get_current_user_id),
-):
+    service: GameServiceDep,
+    user_id: CurrentUserId,
+) -> list[GameResponse]:
     """Завершённые игры (победа/ничья) текущего пользователя — определяется
     по accessToken, а не по параметру запроса: чужую историю так не получить."""
     games = await service.get_finished_games_by_user(user_id)
     return [GameWebMapper.domain_to_response(g) for g in games]
 
 
-@router.get("/{game_id}", response_model=GameResponse)
+@router.get("/{game_id}")
 async def get_game(
     game_id: UUID,
-    service: IGameService = Depends(get_game_service),
-    user_id: UUID = Depends(get_current_user_id),
-):
+    service: GameServiceDep,
+) -> GameResponse:
     try:
         game = await service.get_game_by_id(game_id)
     except GameNotFoundError:
@@ -84,12 +73,12 @@ async def get_game(
     return GameWebMapper.domain_to_response(game)
 
 
-@router.post("/{game_id}/join", response_model=GameResponse)
+@router.post("/{game_id}/join")
 async def join_game(
     game_id: UUID,
-    service: IGameService = Depends(get_game_service),
-    user_id: UUID = Depends(get_current_user_id),
-):
+    service: GameServiceDep,
+    user_id: CurrentUserId,
+) -> GameResponse:
     try:
         game = await service.join_game(game_id, user_id)
     except GameNotFoundError:
@@ -99,13 +88,13 @@ async def join_game(
     return GameWebMapper.domain_to_response(game)
 
 
-@router.patch("/{game_id}", response_model=GameResponse)
+@router.patch("/{game_id}")
 async def make_move(
     game_id: UUID,
     request_data: MoveRequest,
-    service: IGameService = Depends(get_game_service),
-    user_id: UUID = Depends(get_current_user_id),
-):
+    service: GameServiceDep,
+    user_id: CurrentUserId,
+) -> GameResponse:
 
     new_board = GameWebMapper.board_request_to_domain(request_data.board)
 

@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,7 +17,7 @@ from tic_tac_toe.web.route.user_route import router as user_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     yield
     # При остановке отдаём соединения Redis (схемой БД тут по-прежнему не занимаемся).
     await app.state.container.close()

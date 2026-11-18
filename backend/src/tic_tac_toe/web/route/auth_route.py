@@ -1,6 +1,4 @@
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, status
 
 from tic_tac_toe.domain.exception.auth_exceptions import (
     InvalidCredentialsError,
@@ -8,9 +6,6 @@ from tic_tac_toe.domain.exception.auth_exceptions import (
     TooManyLoginAttemptsError,
     UserAlreadyExistsError,
 )
-from tic_tac_toe.domain.service.auth_interface import IAuthService
-from tic_tac_toe.domain.service.user_interface import IUserService
-from tic_tac_toe.infrastructure.database.session import DbSession
 from tic_tac_toe.web.model.request_model import (
     JwtRequest,
     RefreshJwtRequest,
@@ -21,19 +16,9 @@ from tic_tac_toe.web.model.response_model import (
     SignUpResponse,
     UserResponse,
 )
-from tic_tac_toe.web.security.user_authenticator import (
-    get_auth_service,
-    get_current_user_id,
-)
+from tic_tac_toe.web.route.deps import AuthServiceDep, CurrentUserId, UserServiceDep
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def _get_user_service(
-    request: Request,
-    session: DbSession,
-) -> IUserService:
-    return request.app.state.container.get_user_service(session)
 
 
 def _invalid_refresh() -> HTTPException:
@@ -44,8 +29,8 @@ def _invalid_refresh() -> HTTPException:
     )
 
 
-@router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
-async def signup(request_data: SignUpRequest, service: IAuthService = Depends(get_auth_service)):
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+async def signup(request_data: SignUpRequest, service: AuthServiceDep) -> SignUpResponse:
     try:
         user = await service.register(request_data.login, request_data.password)
     except UserAlreadyExistsError:
@@ -56,8 +41,8 @@ async def signup(request_data: SignUpRequest, service: IAuthService = Depends(ge
     return SignUpResponse(success=True, id=user.id)
 
 
-@router.post("/login", response_model=JwtResponse)
-async def login(request_data: JwtRequest, service: IAuthService = Depends(get_auth_service)):
+@router.post("/login")
+async def login(request_data: JwtRequest, service: AuthServiceDep) -> JwtResponse:
     try:
         access, refresh = await service.authenticate(request_data.login, request_data.password)
     except InvalidCredentialsError:
@@ -77,10 +62,11 @@ async def login(request_data: JwtRequest, service: IAuthService = Depends(get_au
 
 # Оба refresh-эндпоинта открыты (без Bearer): клиент приходит сюда именно
 # потому, что accessToken уже протух.
-@router.post("/token/access", response_model=JwtResponse)
+@router.post("/token/access")
 async def refresh_access_token(
-    request_data: RefreshJwtRequest, service: IAuthService = Depends(get_auth_service)
-):
+    request_data: RefreshJwtRequest,
+    service: AuthServiceDep,
+) -> JwtResponse:
     try:
         access, refresh = await service.refresh_access_token(request_data.refreshToken)
     except InvalidTokenError:
@@ -88,10 +74,11 @@ async def refresh_access_token(
     return JwtResponse(accessToken=access, refreshToken=refresh)
 
 
-@router.post("/token/refresh", response_model=JwtResponse)
+@router.post("/token/refresh")
 async def refresh_refresh_token(
-    request_data: RefreshJwtRequest, service: IAuthService = Depends(get_auth_service)
-):
+    request_data: RefreshJwtRequest,
+    service: AuthServiceDep,
+) -> JwtResponse:
     try:
         access, refresh = await service.refresh_refresh_token(request_data.refreshToken)
     except InvalidTokenError:
@@ -99,13 +86,10 @@ async def refresh_refresh_token(
     return JwtResponse(accessToken=access, refreshToken=refresh)
 
 
-@router.get("/me", response_model=UserResponse)
-async def me(
-    user_id: UUID = Depends(get_current_user_id),
-    user_service: IUserService = Depends(_get_user_service),
-):
+@router.get("/me")
+async def me(user_id: CurrentUserId, service: UserServiceDep) -> UserResponse:
     """Информация о пользователе по accessToken."""
-    user = await user_service.get_by_id(user_id)
+    user = await service.get_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return UserResponse(id=user.id, login=user.login)

@@ -14,5 +14,5 @@ class UserModel(Base):
     # unique=True — на уровне БД гарантирует уникальность логина даже при
     # гонке параллельных запросов регистрации (то, что не покрыть одной
     # только проверкой "такой login уже есть?" в сервисе перед сохранением).
-    login: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    login: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))

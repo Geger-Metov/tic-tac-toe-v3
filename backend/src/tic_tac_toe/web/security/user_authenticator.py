@@ -1,25 +1,16 @@
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Header, HTTPException, status
 
 from tic_tac_toe.domain.exception.auth_exceptions import InvalidTokenError
-from tic_tac_toe.domain.service.auth_interface import IAuthService
-from tic_tac_toe.infrastructure.database.session import DbSession
+from tic_tac_toe.web.route.deps import AuthServiceDep
 
 _BEARER_PREFIX = "Bearer "
 
 
-def get_auth_service(
-    request: Request,
-    session: DbSession,
-) -> IAuthService:
-    container = request.app.state.container
-    return container.get_auth_service(session)
-
-
 async def get_current_user_id(
+    auth_service: AuthServiceDep,
     authorization: str | None = Header(default=None),
-    auth_service: IAuthService = Depends(get_auth_service),
 ) -> UUID:
     """
     UserAuthenticator: Basic-авторизация убрана, вместо неё — Bearer.

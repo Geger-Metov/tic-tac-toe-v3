@@ -1,7 +1,9 @@
+import typing
 from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import Float, and_, cast, delete, desc, func, or_, select, union_all
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tic_tac_toe.datasource.mapper.domain_data_mapper import to_data, to_domain
@@ -139,4 +141,5 @@ class GameRepo:
             # синхронизировать с ней identity map не нужно.
             .execution_options(synchronize_session=False)
         )
-        return result.rowcount
+        # DELETE возвращает CursorResult, но execute() типизирован шире.
+        return int(typing.cast("CursorResult[typing.Any]", result).rowcount)

@@ -28,25 +28,23 @@ class GameModel(Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     # Доска хранится как JSON (List[List[int]]); нормализовывать в отдельную
     # таблицу клеток избыточно — доска всегда читается/пишется целиком.
-    board: Mapped[list] = mapped_column(JSONB, nullable=False)
+    board: Mapped[list[list[int]]] = mapped_column(JSONB)
 
-    player_x_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    player_x_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True))
     # NULL — ждём второго игрока; COMPUTER_ID (nil UUID) — играем с компьютером;
     # иначе — UUID присоединившегося игрока. См. domain.model.game.
-    player_o_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    player_o_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
 
-    status: Mapped[GameStatus] = mapped_column(
-        SAEnum(GameStatus, name="game_status"), nullable=False
-    )
+    status: Mapped[GameStatus] = mapped_column(SAEnum(GameStatus, name="game_status"))
     # UUID, привязанный к текущему статусу: для PLAYER_TURN — чей ход,
     # для WIN — победитель; для WAITING_FOR_PLAYER/DRAW всегда NULL.
     # Разложение GameState (sum type в domain) на пару колонок (status,
     # status_player_id) — ответственность мапера (datasource/mapper).
-    status_player_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    status_player_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
 
     # server_default нужен не приложению (оно всегда передаёт значение явно),
     # а миграции: добавить NOT NULL колонку в таблицу, где уже есть строки,
     # можно только если у колонки есть значение по умолчанию для них.
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+        DateTime(timezone=True), server_default=func.now(), index=True
     )

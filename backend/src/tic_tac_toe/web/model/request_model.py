@@ -10,7 +10,8 @@ class BoardRequest(BaseModel):
     )
 
     @field_validator("grid")
-    def check_grid_dimensions(cls, v):
+    @classmethod
+    def check_grid_dimensions(cls, v: list[list[int]]) -> list[list[int]]:
         if len(v) != 3:
             raise ValueError("grid must have exactly 3 rows")
         for row in v:

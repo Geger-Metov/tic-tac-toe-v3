@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 import jwt
@@ -42,7 +43,7 @@ class JwtProvider(IJwtProvider):
     def get_jti(self, token: str) -> str:
         payload = self._decode(token)
         try:
-            return payload["jti"]
+            return str(payload["jti"])
         except KeyError as e:
             raise InvalidTokenError("token has no 'jti' claim") from e
 
@@ -62,7 +63,7 @@ class JwtProvider(IJwtProvider):
         }
         return jwt.encode(payload, self._secret_key, algorithm=_ALGORITHM)
 
-    def _decode(self, token: str) -> dict:
+    def _decode(self, token: str) -> dict[str, Any]:
         try:
             return jwt.decode(token, self._secret_key, algorithms=[_ALGORITHM])
         except jwt.PyJWTError as e:

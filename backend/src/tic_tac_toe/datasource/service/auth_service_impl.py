@@ -41,7 +41,8 @@ class AuthService(IAuthService):
         user = await self._user_service.get_by_login(login)
         # verify_password вызывается и при user=None (проверка против пустышки),
         # чтобы по времени ответа нельзя было узнать, существует ли логин.
-        if not await self._user_service.verify_password(user, password):
+        password_ok = await self._user_service.verify_password(user, password)
+        if user is None or not password_ok:
             # Попытка уже засчитана — отдельно "записывать неудачу" не нужно.
             raise InvalidCredentialsError()
 

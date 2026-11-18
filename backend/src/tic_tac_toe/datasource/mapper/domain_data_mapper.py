@@ -51,13 +51,20 @@ def _state_to_columns(state: GameState) -> tuple[GameStatus, UUID | None]:
     raise ValueError(f"Unknown game state: {state!r}")  # pragma: no cover
 
 
+def _require_player(status: GameStatus, player_id: UUID | None) -> UUID:
+    # Целостность данных: для PLAYER_TURN/WIN игрок обязан быть указан.
+    if player_id is None:
+        raise ValueError(f"Status {status!r} requires status_player_id, got NULL")
+    return player_id
+
+
 def _columns_to_state(status: GameStatus, status_player_id: UUID | None) -> GameState:
     if status == GameStatus.WAITING_FOR_PLAYER:
         return WaitingForPlayer()
     if status == GameStatus.PLAYER_TURN:
-        return PlayerTurn(status_player_id)
+        return PlayerTurn(_require_player(status, status_player_id))
     if status == GameStatus.DRAW:
         return Draw()
     if status == GameStatus.WIN:
-        return Win(status_player_id)
+        return Win(_require_player(status, status_player_id))
     raise ValueError(f"Unknown status: {status!r}")  # pragma: no cover

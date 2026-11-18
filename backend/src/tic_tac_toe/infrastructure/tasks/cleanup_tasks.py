@@ -33,7 +33,7 @@ async def _cleanup_abandoned_games(max_age: timedelta) -> int:
         await engine.dispose()
 
 
-@celery_app.task(
+@celery_app.task(  # type: ignore[untyped-decorator]
     name=CLEANUP_ABANDONED_GAMES,
     # Временные сбои (например, БД перезапускается) переживаем повторами с
     # растущей паузой, но не бесконечно. Повтор безопасен: задача идемпотентна.
