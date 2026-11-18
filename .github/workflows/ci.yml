@@ -91,4 +91,44 @@ jobs:
       - name: Build
         run: pnpm build
 
-# TODO нужно ли добавить сборку docker, e2e когда появятся, нужна ли schema.d.ts и проверка актуальность типов через pnpm gen api в ci и запушенным файлом
+  docker:
+    # Сборка образов и сквозная проверка всего стека: ловит ошибки Dockerfile,
+    # .dockerignore, entrypoint (миграции), nginx-прокси и настоящей сессии БД,
+    # которых не видят ни юнит-, ни интеграционные тесты.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          # Плейсхолдер из .env.example приложение отвергает намеренно
+          sed -i "s/^JWT_SECRET_KEY=.*/JWT_SECRET_KEY=$(openssl rand -hex 32)/" .env
+      - name: Build images
+        run: docker compose build
+      - name: Start stack
+        run: docker compose up -d --wait --wait-timeout 180 db redis app frontend
+      - name: Smoke test through nginx
+        run: |
+          BASE=http://localhost:8080/api
+          LOGIN="ci-$(date +%s)"
+          # У app нет healthcheck: контейнер "запущен" ещё до конца миграций — ждём API.
+          for i in $(seq 1 30); do
+            curl -fsS "$BASE/openapi.json" >/dev/null && break
+            [ "$i" = 30 ] && { echo "API did not become ready"; exit 1; }
+            sleep 2
+          done
+          curl -fsS -X POST "$BASE/auth/signup" -H 'Content-Type: application/json' \
+            -d "{\"login\": \"$LOGIN\", \"password\": \"secret123\"}"
+          TOKEN=$(curl -fsS -X POST "$BASE/auth/login" -H 'Content-Type: application/json' \
+            -d "{\"login\": \"$LOGIN\", \"password\": \"secret123\"}" | jq -r .accessToken)
+          curl -fsS "$BASE/auth/me" -H "Authorization: Bearer $TOKEN" | jq -e ".login == \"$LOGIN\""
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v
+
+# TODO e2e когда появятся, нужна ли schema.d.ts и проверка актуальности типов через pnpm gen api в ci и запушенным файлом
