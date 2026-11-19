@@ -19,4 +19,11 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Playwright-тесты и его конфиг работают в Node, а не в браузере.
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ]);
