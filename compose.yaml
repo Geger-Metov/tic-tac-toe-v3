@@ -90,7 +90,7 @@ services:
   # "временные неэксклюзивные очереди" (transient_nonexcl_queues), а служебные
   # очереди Celery (удалённое управление, события) именно такие.
   rabbitmq:
-    image: rabbitmq:4.2-management-alpine
+    image: rabbitmq:4.4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ttt}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ttt}
